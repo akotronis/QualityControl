@@ -58,11 +58,13 @@ cp = mycprint(window)
 iom = IOManager(window)
 db = DbManager(window)
 
+#################################################
 test_files_dir = os.path.join(os.getcwd(), 'test_files')
 test_files_dir = r'C:\ANASTASIS\Python\My_Projects\QualityControl\test_files'
 clusters_file = os.path.join(test_files_dir, 'clusters', 'cluster file.xlsx')
 skus_file = os.path.join(test_files_dir, 'skus', 'Monthly-Juice.xlsx')
-print(os.getcwd())
+#################################################
+
 while 1:
     event, values = window.read()
     # print(f'Event={event}')
@@ -103,11 +105,17 @@ while 1:
             iom.parse_clusters(clusters_file)
     # MENU "Import" -> SKUs
     elif '::IS' in event:
-        # selected_sku_type = event[-1]
-        # sku_file_type = {'M':'(MONTHLY)', 'F':'(BIMONTHLY - FOOD)', '':'(BIMONTHLY - NON FOOD)'}
-        # skus_filename = sg.popup_get_file(f'Select SKUs file {sku_file_type[selected_sku_type]}', file_types=(('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
-        if 1 > 0: # skus_filename:
-            iom.parse_skus(skus_file)
+        selected_sku_type = event[-1]
+        sku_file_type = {'M':'(MONTHLY)', 'F':'(BIMONTHLY - FOOD)', 'N':'(BIMONTHLY - NON FOOD)'}
+        skus_file = sg.popup_get_file(f'Select SKUs file {sku_file_type[selected_sku_type]}', file_types=(('CSV files',"*.csv"), ('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
+        if 1 > 0 and skus_file:
+            sku_file_type = {'M':'Mountly', 'F':'Food', 'N':'Non_Food'}
+            imported_ptype = sku_file_type[selected_sku_type]
+            skus_df, sku_ids_names = iom.parse_skus(skus_file, imported_ptype)
+            # Instantiate SkuAnalysis class
+            analysis_class = SkuAnalysis(window)
+            analysis_class.perform_analysis(iom.parse_clusters(clusters_file), skus_df, sku_ids_names.keys(), imported_ptype)
+            cp('FINISHED')
     # MENU "Import" -> Outlets
     elif event.endswith('::IO'):
         outlets_filename = sg.popup_get_file('Select Outlets file', no_window=True, file_types=(('Excel files',"*.xlsx"), ('Excel files',"*.xls")))

@@ -1,3 +1,5 @@
+from math import log
+import numpy as np
 import PySimpleGUI as sg
 
 
@@ -18,7 +20,7 @@ CLUSTERS_IMPORT_MESSAGE = f'''{"---------- IMPORTING A CLUSTERS FILE ----------"
 '''
 SKUS_IMPORT_MESSAGE = f'''{"---------- IMPORTING AN SKUs FILE ----------".center(100)}
 
-- Input must be an excel file with the following format:
+- Input must be an excel or csv file (csv will be much faster) with the following format:
   1) Must have a single sheet
   2) Columns must be the below:
      - IDOutlet (Positive integer, non-missing)
@@ -134,6 +136,21 @@ def timer(start, end):
         txt, vals = "{}h:{}m:{:05.2f}s", (int(hours),int(minutes),seconds)
     return txt.format(*vals)
 
+
+def join_columns(df, col_list, sep='-'):
+    new_col = df[col_list].apply(lambda r:sep.join([str(x) for x in r]), axis='columns')
+    return new_col
+
+def diffs(r):
+    output = []
+    for i,v in enumerate(r):
+        if i < len(r) - 1:
+            if r[i] == 0 or r[i+1] == 0:
+                item = np.nan
+            else:
+                item = r[i] * log(r[i] / r[i+1]) + r[i+1] - r[i]
+            output.append(item)
+    return output
 
 def popup_yes_no(title='', message=''):
     '''A confirmation popup
