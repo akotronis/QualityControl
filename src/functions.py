@@ -102,6 +102,73 @@ oBook.Close False
 oExcel.Quit
 '''
 
+CREATE_CLUSTERS_SQL = '''
+CREATE TABLE IF NOT EXISTS "clusters" (
+	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"IDOutlet" integer unsigned NOT NULL UNIQUE CHECK ("IDOutlet" >= 0),
+	"Cluster_Mountly" integer unsigned NULL CHECK ("Cluster_Mountly" >= 0),
+	"Cluster_food" integer unsigned NULL CHECK ("Cluster_food" >= 0),
+	"Cluster_non_Food" integer unsigned NULL CHECK ("Cluster_non_Food" >= 0)
+)
+'''
+
+CREATE_SKUS_SQL = '''
+CREATE TABLE IF NOT EXISTS "skus" (
+	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"sku_name" varchar(500) NOT NULL,
+	"sku_file_name" varchar(500) NOT NULL,
+	"imported_datetime" datetime NOT NULL,
+	"period_type" integer unsigned NULL CHECK ("period_type" >= 0),
+	"sku_id" varchar(100) NOT NULL
+)
+'''
+
+CREATE_ANALYSIS_SQL = '''
+CREATE TABLE IF NOT EXISTS "analysis" (
+	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"cluster" integer unsigned NULL CHECK ("cluster" >= 0),
+	"count" integer unsigned NOT NULL CHECK ("count" >= 0),
+	"min_diff" real NULL,
+	"max_diff" real NULL,
+	"mean_diff" real NULL,
+	"std_diff" real NULL,
+	"cv_diff" real NULL,
+	"perc90_diff" real NULL,
+	"perc95_diff" real NULL,
+	"perc99_diff" real NULL,
+	"sku_id" integer NULL REFERENCES "app0001skus_sku" ("id") DEFERRABLE INITIALLY DEFERRED
+)
+'''
+CREATE_OUTLET_SQL = '''
+CREATE TABLE IF NOT EXISTS "outlets" (
+	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"lm_purch" real NULL,
+	"purch" real NULL,
+	"stars" varchar(100) NULL,
+	"shop_code" integer unsigned NULL CHECK ("shop_code" >= 0),
+	"proposed_purch_1" real NULL,
+	"proposed_purch_2" real NULL,
+	"analysis_id" integer NULL REFERENCES "app0001skus_analysis" ("id") DEFERRABLE INITIALLY DEFERRED
+)
+'''
+
+CREATE_MISSING_SQL = '''
+CREATE TABLE IF NOT EXISTS "missing" (
+	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"id_brand" integer unsigned NULL CHECK ("id_brand" >= 0),
+	"id_product" integer unsigned NULL CHECK ("id_product" >= 0),
+	"id_sku" integer unsigned NULL CHECK ("id_sku" >= 0),
+	"period_type" integer unsigned NULL CHECK ("period_type" >= 0),
+	"cluster" integer unsigned NULL CHECK ("cluster" >= 0),
+	"shop_code" integer unsigned NULL CHECK ("shop_code" >= 0),
+	"lm_purch" real NULL,
+	"purch" real NULL
+)
+'''
+
+#######################################################################################################
+#######################################################################################################
+
 def mycprint(w):
     '''A closure that carries the window object to use from printing to the app console'''
     def cprint(*args, **kwargs):
@@ -112,8 +179,8 @@ def mycprint(w):
             if not message.strip():
                 return cprint
         cp = sg.cprint
-        # If l!= False, print a line ABOVR the output message
-        if kwargs.get('l') != False:
+        # If l!= False, print a line ABOVE the output message
+        if kwargs.get('l'):
             cp(100*'=')
         if kwargs.get('cons'):
             print(message)
@@ -141,6 +208,7 @@ def join_columns(df, col_list, sep='-'):
     new_col = df[col_list].apply(lambda r:sep.join([str(x) for x in r]), axis='columns')
     return new_col
 
+
 def diffs(r):
     output = []
     for i,v in enumerate(r):
@@ -152,6 +220,24 @@ def diffs(r):
             output.append(item)
     return output
 
+def progress_bar(key, iterable, *args, title='', **kwargs):
+    """
+    Takes your iterable and adds a progress meter onto it
+    :param key: Progress Meter key
+    :param iterable: your iterable
+    :param args: To be shown in one line progress meter
+    :param title: Title shown in meter window
+    :param kwargs: Other arguments to pass to one_line_progress_meter
+    :return:
+    """
+    sg.set_options(element_padding=((5, 5),(5, 5)))
+    sg.one_line_progress_meter(title, 0, len(iterable), key, *args, **kwargs)
+    for i, val in enumerate(iterable):
+        yield val
+        if not sg.one_line_progress_meter(title, i+1, len(iterable), key, *args, **kwargs):
+            break
+
+
 def popup_yes_no(title='', message=''):
     '''A confirmation popup
     '''
@@ -161,16 +247,7 @@ def popup_yes_no(title='', message=''):
         [sg.Text(message, auto_size_text=True, justification='center')],
         [sg.Button('Yes'), sg.Button('No')]
     ]
-    window = sg.Window(title, layout, finalize=True, modal=True, element_justification='c')
+    window = sg.Window(title, layout, finalize=True, modal=True, element_justification='c', size=(300,100))
     event, values = window.read()
     window.close()
     return event == 'Yes'
-
-
-
-# def popup(w, messages=None):
-#     w.disappear()
-#     if isinstance(messages, str):
-#         messages = [messages]
-#     sg.popup(*messages, grab_anywhere=True, title='Info',)
-#     w.reappear()

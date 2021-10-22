@@ -11,7 +11,6 @@ from functions import *
 """
 
 
-sg.theme('Python')
 sg.set_options(element_padding=(0, 0))
 
 # ------ Menu Definition ------ #
@@ -58,7 +57,7 @@ cp = mycprint(window)
 iom = IOManager(window)
 db = DbManager(window)
 
-#################################################
+##################### TESTS #####################
 test_files_dir = os.path.join(os.getcwd(), 'test_files')
 test_files_dir = r'C:\ANASTASIS\Python\My_Projects\QualityControl\test_files'
 clusters_file = os.path.join(test_files_dir, 'clusters', 'cluster file.xlsx')
@@ -70,7 +69,7 @@ while 1:
     # print(f'Event={event}')
     # MENU "Exit" or Click X -> Close App
     title = 'WARNING!'
-    message = 'Clicking "Yes" WILL TERMINATE the application.'
+    message = 'This will close the application.'
     if (event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT or event.endswith('::EA')) and popup_yes_no(title, message):
         break
     # MENU "About" -> Print info messages
@@ -99,10 +98,10 @@ while 1:
         cp('', u=True)
     # MENU "Import" -> Clusters
     elif event.endswith('::IC'):
-        # clusters_filename = sg.popup_get_file('Select Clusters file', no_window=True, file_types=(('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
-        if 1 > 0: # clusters_filename:
-            # db.update_clusters()
-            iom.parse_clusters(clusters_file)
+        clusters_filename = sg.popup_get_file('Select Clusters file', no_window=True, file_types=(('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
+        if clusters_filename:
+            clusters_df = iom.parse_clusters(clusters_file)
+            db.update_table('clusters', clusters_df.values.tolist())
     # MENU "Import" -> SKUs
     elif '::IS' in event:
         selected_sku_type = event[-1]
@@ -115,7 +114,6 @@ while 1:
             # Instantiate SkuAnalysis class
             analysis_class = SkuAnalysis(window)
             analysis_class.perform_analysis(iom.parse_clusters(clusters_file), skus_df, sku_ids_names.keys(), imported_ptype)
-            cp('FINISHED')
     # MENU "Import" -> Outlets
     elif event.endswith('::IO'):
         outlets_filename = sg.popup_get_file('Select Outlets file', no_window=True, file_types=(('Excel files',"*.xlsx"), ('Excel files',"*.xls")))

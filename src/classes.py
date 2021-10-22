@@ -38,8 +38,9 @@ class SkuAnalysis():
         columns_kept = ['IDOutlet', 'PeriodName', 'Purch']
 
         sku_report = {}
-        for sku in skus:
-            self.cp(f'sku: {sku} START')
+        for sku in progress_bar('Analysing SKUs', skus, title='', orientation='v', keep_on_top=True, grab_anywhere=True, no_titlebar=True, no_button=True):
+            # self.cp(f'sku: {sku} START')
+            # Filter skus dataframe for specfic sku
             product, brand, _sku = map(int, sku.split('-'))
             mask = (skus_df['IDProduct'] == product) & (skus_df['IDBrand'] == brand) & (skus_df['IDGoods'] == _sku)
             sku_df = skus_df[mask]
@@ -143,8 +144,8 @@ class SkuAnalysis():
             report_df = report_df.loc[report_df['N'] >= limit]
 
             sku_report[sku] = report_df
-            self.cp(f'sku: {sku} END {timer(start, time.time())}')
-
+            # self.cp(f'sku: {sku} END {timer(start, time.time())}')
+        self.cp(f'sku analysis finished in {timer(start, time.time())}!', c=SUCCESS_OUTPUT_FORMAT)
         return sku_report
 
 ##############################################################################################################################
@@ -156,33 +157,28 @@ class DbManager():
         self.db_filename = os.path.join(os.getcwd(), 'db.sqlite3')
         # Method to print on app console
         self.cp = mycprint(window)
+        self.create_tables()
 
-    def table_exists(self, table_name):
+    def create_tables(self):
+        # Use context manager to auto close connection
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             # Use context manager to auto commit or rollback
             with _con as con:
-                self.cp(f'Checking for table "{table_name}"\n...')
-                sql = f"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table_name}'"
-                return con.execute(sql).fetchone()[0]
+                for sql  in [CREATE_CLUSTERS_SQL, CREATE_SKUS_SQL, CREATE_ANALYSIS_SQL, CREATE_OUTLET_SQL, CREATE_MISSING_SQL]:
+                    con.execute(sql)
 
-    def create_clusters_tables(self):
-        columns = ['c1', 'c2']
+    def table_exists(self, table_name):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
-                try:
-                    # Clusters Table
-                    sql = f'CREATE TABLE IF NOT EXISTS clusters({", ".join(columns)})'
-                    con.execute(sql)
-                except:
-                    self.cp('Error while creating "clusters" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
+                self.cp(f'Checking for table "{table_name}" ...')
+                sql = f"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+                return con.execute(sql).fetchone()[0]
 
     def delete_table_rows(self, table_name):
         if not self.table_exists(table_name):
             self.cp(f'"{table_name}" database table does not exist.', c=ERROR_OUTPUT_FORMAT)
         else:
-            # Use context manager to auto close connection
             with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
-                # Use context manager to auto commit or rollback
                 with _con as con:
                     try:
                         db_entries = con.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
@@ -197,32 +193,28 @@ class DbManager():
                     except:
                         self.cp(f'Error while clearing "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
 
-    def update_clusters(self, values=[]):
-        self.delete_table_rows('clusters')
-        col_num = 50
-        row_num = 10_000
-        columns = [f'c{i}' for i in range(1, col_num+1)]
-        values = [col_num*(i,) for i in range(1,row_num+1)]
+    def update_table(self, table_name, values=[]):
+        # Clear table
+        if table_name not in ['skus', 'analysis']:
+            self.delete_table_rows(table_name)
+        if values:
+            with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
+                with _con as con:
+                    try:
+                        # Get database table columns
+                        db_columns = [c[1] for c in con.execute(f'PRAGMA table_info({table_name})').fetchall()[1:]]
+                        # Insert values
+                        self.cp(f'Inserting {len(values)} rows in "{table_name}" database table ... please wait ...')
+                        start = time.time()
+                        con.executemany(f'INSERT INTO {table_name}({", ".join(db_columns)}) VALUES ({", ".join(len(values[0]) * ["?"])})', values)
+                        db_entries = con.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+                        duration = timer(start, time.time())
+                        self.cp(f'"{table_name}" database table succesfully updated in {duration}! Current rows: {db_entries}', c=SUCCESS_OUTPUT_FORMAT)
+                    except:
+                        self.cp(f'Error while updating "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
+        else:
+            self.cp(f'No values to insert in "{table_name}" database table', c=WARNING_OUTPUT_FORMAT)
 
-        with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
-            with _con as con:
-                try:
-                    # Clusters Table
-                    sql = f'CREATE TABLE IF NOT EXISTS clusters({", ".join(columns)})'
-                    con.execute(sql)
-                except:
-                    self.cp('Error while updating "clusters" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
-            with _con as con:
-                try:
-                    # Insert values
-                    self.cp(f'Inserting {len(values)} rows in "clusters" database table ... please wait ...', l=False)
-                    start = time.time()
-                    con.executemany(f'INSERT INTO clusters VALUES ({", ".join(col_num*["?"])})', values)
-                    db_entries = con.execute('SELECT COUNT(*) FROM clusters').fetchone()[0]
-                    duration = timer(start, time.time())
-                    self.cp(f'"clusters" database table succesfully updated in {duration}! Current rows: {db_entries}', c=SUCCESS_OUTPUT_FORMAT)
-                except:
-                    self.cp('Error while updating "clusters" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
     
 ##############################################################################################################################
 ##############################################################################################################################
@@ -244,11 +236,11 @@ class IOManager():
         with open(vbscript, 'w') as f:
             f.write(VB_EXCEL_TO_CSV)
         call(['cscript.exe', vbscript, excel_filename, csv_filename, '1'])
-        self.cp('Reading csv file ... please wait ...', l=False)
+        self.cp('Reading csv file ... please wait ...')
 
     def parse_clusters(self, filename):
         start = time.time()
-        self.cp(f'Parsing "clusters" file ... please wait ...')
+        self.cp(f'Parsing "clusters" file ... please wait ...', l=True)
         c = SUCCESS_OUTPUT_FORMAT
         df_columns = ['IDOutlet', 'Cluster_Mountly', 'Cluster_food', 'Cluster_non_Food']
         column_types = {'IDOutler':'int64', 'Cluster_Mountly':'Int8',
@@ -265,11 +257,11 @@ class IOManager():
             message = f'Error while parsing "cluster" file. Please check your input.'
             c = ERROR_OUTPUT_FORMAT
         finally:
-            self.cp(message, c=c, l=False)
+            self.cp(message, c=c)
 
     def parse_skus(self, filename, selected_sku_type):
         start = time.time()
-        self.cp(f'Parsing "skus" file ... please wait ...')
+        self.cp(f'Parsing "skus" file ... please wait ...', l=True)
         c = SUCCESS_OUTPUT_FORMAT
         df_columns = [
                 'IDOutlet',
@@ -288,14 +280,14 @@ class IOManager():
         try:
             _, extension = os.path.splitext(filename)
             if extension in ['.xlsx', '.xls']:
-                self.cp('Converting excel to csv ... please wait ...', l=False)
+                self.cp('Converting excel to csv ... please wait ...')
                 try:
                     vbscript = os.path.join(os.getcwd(), 'ExcelToCsv.vbs')
                     csv_filename = os.path.join(os.getcwd(), f'{int(time.time())}.csv')
                     self.excel_to_csv(vbscript,  filename, csv_filename)
                     df = pd.read_csv(csv_filename, usecols=df_columns, sep=None)#, dtype=column_types)
                 except:
-                    self.cp('Cannot convert to csv or read converted file. Reading excel file ... please wait ...', l=False)
+                    self.cp('Cannot convert to csv or read converted file. Reading excel file ... please wait ...')
                     xl_fl = pd.ExcelFile(filename)
                     df = xl_fl.parse(xl_fl.sheet_names[0], usecols=df_columns)#, dtype=column_types)
                 finally:
@@ -316,7 +308,7 @@ class IOManager():
             message = f'Error while parsing "skus" file.\n- Please check your input and \n- Make sure imported file matches the sku type you selected.'
             c = ERROR_OUTPUT_FORMAT
         finally:
-            self.cp(message, c=c, l=False)
+            self.cp(message, c=c)
         
         
         
