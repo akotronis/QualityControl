@@ -26,8 +26,6 @@ SKUS_IMPORT_MESSAGE = f'''{"---------- IMPORTING AN SKUs FILE ----------".center
      - IDOutlet (Positive integer, non-missing)
      - PeriodType (String, non-missing, case sensitive, unique value)
        - Allowed values: Mountly, or Food, or Non_Food, according to what type you selected
-     - OutletType (String)
-     - Area (String)
      - PeriodName (String, non-missing, case sensitive). Values should be of the form:
         a) Month year [e.g. Feb 2019] or of the form
         b) Month1-Month2 year [e.g. Feb-Mar 2019]
@@ -47,7 +45,7 @@ SKUS_IMPORT_MESSAGE = f'''{"---------- IMPORTING AN SKUs FILE ----------".center
 - Files that don't have the above format will be rejected and won't update the database
 - Files that contain skus that already exist in the database for the selected period type will be
   rejected and won't update the database
-- You can select Export skus from the select action page to check the skus that are currently
+- You can select Export skus from the menu to check the skus that are currently
   in the database
 - Make sure that the clusters database is up to date before uploading the sku files
 
@@ -60,6 +58,7 @@ OUTLETS_IMPORT_MESSAGE = f'''{"---------- IMPORTING AN OUTLETS FILE ----------".
      - IDOutlet (Positive integer, non-missing)
      - PeriodType (String, non-missing, case sensitive, unique value)
        - Allowed values: Mountly, or Food, or Non_Food
+     - PeriodName (String, non-missing, case sensitive, unique value)
      - IDProduct (Positive integer, non-missing)
      - IDBrand (Positive integer, non-missing)
      - IDGoods (Positive integer, non-missing)
@@ -105,21 +104,21 @@ oExcel.Quit
 CREATE_CLUSTERS_SQL = '''
 CREATE TABLE IF NOT EXISTS "clusters" (
 	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-	"IDOutlet" integer unsigned NOT NULL UNIQUE CHECK ("IDOutlet" >= 0),
-	"Cluster_Mountly" integer unsigned NULL CHECK ("Cluster_Mountly" >= 0),
-	"Cluster_food" integer unsigned NULL CHECK ("Cluster_food" >= 0),
-	"Cluster_non_Food" integer unsigned NULL CHECK ("Cluster_non_Food" >= 0)
+	"id_outlet" integer unsigned NOT NULL UNIQUE CHECK ("id_outlet" >= 0),
+	"mountly" integer unsigned NULL CHECK ("mountly" >= 0),
+	"food" integer unsigned NULL CHECK ("food" >= 0),
+	"non_food" integer unsigned NULL CHECK ("non_food" >= 0)
 )
 '''
 
 CREATE_SKUS_SQL = '''
 CREATE TABLE IF NOT EXISTS "skus" (
 	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "sku_id" varchar(100) NOT NULL,
+    "period_type" integer unsigned NULL CHECK ("period_type" >= 0),
 	"sku_name" varchar(500) NOT NULL,
 	"sku_file_name" varchar(500) NOT NULL,
-	"imported_datetime" datetime NOT NULL,
-	"period_type" integer unsigned NULL CHECK ("period_type" >= 0),
-	"sku_id" varchar(100) NOT NULL
+	"imported_date" date NOT NULL
 )
 '''
 
@@ -136,36 +135,36 @@ CREATE TABLE IF NOT EXISTS "analysis" (
 	"perc90_diff" real NULL,
 	"perc95_diff" real NULL,
 	"perc99_diff" real NULL,
-	"sku_id" integer NULL REFERENCES "app0001skus_sku" ("id") DEFERRABLE INITIALLY DEFERRED
+	"sku_id" integer NULL REFERENCES "skus" ("id") DEFERRABLE INITIALLY DEFERRED
 )
 '''
 CREATE_OUTLET_SQL = '''
 CREATE TABLE IF NOT EXISTS "outlets" (
 	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id_outlet" integer unsigned NULL CHECK ("id_outlet" >= 0),
 	"lm_purch" real NULL,
 	"purch" real NULL,
 	"stars" varchar(100) NULL,
-	"shop_code" integer unsigned NULL CHECK ("shop_code" >= 0),
 	"proposed_purch_1" real NULL,
 	"proposed_purch_2" real NULL,
-	"analysis_id" integer NULL REFERENCES "app0001skus_analysis" ("id") DEFERRABLE INITIALLY DEFERRED
+	"analysis_id" integer NULL REFERENCES "analysis" ("id") DEFERRABLE INITIALLY DEFERRED
 )
 '''
 
 CREATE_MISSING_SQL = '''
 CREATE TABLE IF NOT EXISTS "missing" (
 	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-	"id_brand" integer unsigned NULL CHECK ("id_brand" >= 0),
-	"id_product" integer unsigned NULL CHECK ("id_product" >= 0),
-	"id_sku" integer unsigned NULL CHECK ("id_sku" >= 0),
+    "sku_id" varchar(100) NOT NULL,
 	"period_type" integer unsigned NULL CHECK ("period_type" >= 0),
 	"cluster" integer unsigned NULL CHECK ("cluster" >= 0),
-	"shop_code" integer unsigned NULL CHECK ("shop_code" >= 0),
+	"id_outlet" integer unsigned NULL CHECK ("id_outlet" >= 0),
 	"lm_purch" real NULL,
 	"purch" real NULL
 )
 '''
-
+DOCS = '''
+Documentation
+'''
 #######################################################################################################
 #######################################################################################################
 
@@ -220,6 +219,57 @@ def diffs(r):
             output.append(item)
     return output
 
+
+def newton(f, Df, x0, epsilon=1e-6, max_iter=100):
+    # https://www.math.ubc.ca/~pwalls/math-python/roots-optimization/newton/
+    '''Approximate solution of f(x)=0 by Newton's method.
+    Parameters
+    ----------
+    f : function
+        Function for which we are searching for a solution f(x)=0.
+    Df : function
+        Derivative of f(x).
+    x0 : number
+        Initial guess for a solution f(x)=0.
+    epsilon : number
+        Stopping criteria is abs(f(x)) < epsilon.
+    max_iter : integer
+        Maximum number of iterations of Newton's method.
+    Returns
+    -------
+    xn : number
+        Implement Newton's method: compute the linear approximation
+        of f(x) at xn and find x intercept by the formula
+            x = xn - f(xn)/Df(xn)
+        Continue until abs(f(xn)) < epsilon and return xn.
+        If Df(xn) == 0, return None. If the number of iterations
+        exceeds max_iter, then return None.
+    Examples
+    --------
+    >>> f = lambda x: x**2 - x - 1
+    >>> Df = lambda x: 2*x - 1
+    >>> newton(f,Df,1,1e-8,10)
+    Found solution after 5 iterations.
+    1.618033988749989
+    '''
+    xn = x0
+    try:
+        for n in range(0,max_iter):
+            fxn = f(xn)
+            if abs(fxn) < epsilon:
+                # print('Found solution after',n,'iterations.')
+                return xn
+            Dfxn = Df(xn)
+            if Dfxn == 0:
+                # print('Zero derivative. No solution found.')
+                return None
+            xn = xn - fxn/Dfxn
+        # print('Exceeded maximum iterations. No solution found.')
+        return None
+    except:
+        return None
+
+
 def progress_bar(key, iterable, *args, title='', **kwargs):
     """
     Takes your iterable and adds a progress meter onto it
@@ -247,7 +297,7 @@ def popup_yes_no(title='', message=''):
         [sg.Text(message, auto_size_text=True, justification='center')],
         [sg.Button('Yes'), sg.Button('No')]
     ]
-    window = sg.Window(title, layout, finalize=True, modal=True, element_justification='c', size=(300,100))
+    window = sg.Window(title, layout, finalize=True, modal=True, element_justification='c', size=(300,150))
     event, values = window.read()
     window.close()
     return event == 'Yes'
