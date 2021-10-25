@@ -56,18 +56,19 @@ window = sg.Window("SKU Quality Control Application",
                     finalize=True,
                     enable_close_attempted_event=True)
 
-cp = mycprint(window)
-db = DbManager(window)
-iom = IOManager(window, db)
 
-#################################################
 ##################### TESTS #####################
 # test_files_dir = os.path.join(os.path.abspath(os.pardir), 'test_files')
 # clusters_file = os.path.join(test_files_dir, 'clusters', 'cluster file.xlsx')
 # skus_file = os.path.join(test_files_dir, 'skus', 'Monthly-Juice.xlsx')
 #################################################
-#################################################
 
+##################### MAIN CLASSES ####################
+CLUSTERS_TO_1 = True
+cp = mycprint(window)
+db = DbManager(window)
+iom = IOManager(window, db)
+#######################################################
 
 while 1:
     event, values = window.read()
@@ -103,7 +104,7 @@ while 1:
                 parse_output = iom.parse_file(input_file, file_type, imported_ptype)
                 clusters_df = db.table_to_df('clusters')
                 if parse_output is not None and clusters_df is not None:
-                    analysis_class = Analysis(window)
+                    analysis_class = Analysis(window, CLUSTERS_TO_1)
                     # MENU "Import" -> SKUs
                     if file_type == 'skus':
                         skus_df, sku_ids_names_dict = parse_output
@@ -122,15 +123,17 @@ while 1:
                             #########################################################
                             ################### Line Profile code ###################
                             #########################################################
-                            lp = LineProfiler()
-                            lp_wrapper = lp(analysis_class.sku_analysis)
-                            sku_df_dict = lp_wrapper(clusters_df, skus_df, sku_ids, imported_ptype)
-                            with open('profile_output.txt', 'w') as f:
-                                lp.print_stats(f)
+                            try:
+                                lp = LineProfiler()
+                                lp_wrapper = lp(analysis_class.sku_analysis)
+                                sku_df_dict = lp_wrapper(clusters_df, skus_df, sku_ids, imported_ptype)
+                                with open('profile_output.txt', 'w') as f:
+                                    lp.print_stats(f)
+                            except:
+                                sku_df_dict = analysis_class.sku_analysis(clusters_df, skus_df, sku_ids, imported_ptype)
                             #########################################################
                             #########################################################
                             #########################################################
-                            # sku_df_dict = analysis_class.sku_analysis(clusters_df, skus_df, sku_ids, imported_ptype)
                             if sku_df_dict is not None:
                                 db.update_table('analysis', sku_df_dict=sku_df_dict)
                     else:
@@ -140,15 +143,17 @@ while 1:
                         #########################################################
                         ################### Line Profile code ###################
                         #########################################################
-                        lp = LineProfiler()
-                        lp_wrapper = lp(analysis_class.outlet_analysis)
-                        missing_atypicals_per_outlet = lp_wrapper(clusters_df, analysis_df, outlets_df, imported_ptype)#, sku_ids
-                        with open('profile_output.txt', 'w') as f:
-                            lp.print_stats(f)
+                        try:
+                            lp = LineProfiler()
+                            lp_wrapper = lp(analysis_class.outlet_analysis)
+                            missing_atypicals_per_outlet = lp_wrapper(clusters_df, analysis_df, outlets_df, imported_ptype)
+                            with open('profile_output.txt', 'w') as f:
+                                lp.print_stats(f)
+                        except:
+                            missing_atypicals_per_outlet = analysis_class.outlet_analysis(clusters_df, analysis_df, outlets_df, imported_ptype)
                         #########################################################
                         #########################################################
                         #########################################################
-                        # missing_atypicals_per_outlet = analysis_class.outlet_analysis(clusters_df, analysis_df, outlets_df, imported_ptype)#, sku_ids
                         if missing_atypicals_per_outlet is not None:
                             db.update_table('outlets', missing_atypicals_per_outlet=missing_atypicals_per_outlet)
                             db.update_table('missing', missing_atypicals_per_outlet=missing_atypicals_per_outlet)
@@ -177,7 +182,6 @@ while 1:
             message = f'This WILL DELETE all rows\nfrom "skus" database table.'
             if popup_yes_no(title, message):
                 db.delete_table_rows('skus')
-                db.delete_table_rows('analysis')
                 db.delete_table_rows('missing')
                 db.delete_table_rows('outlets')
     # MENU "Console" -> Clear Console

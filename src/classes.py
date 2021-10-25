@@ -10,8 +10,9 @@ from functions import *
 
 class Analysis():
 
-    def __init__(self, window):
+    def __init__(self, window, clusters_to_1=False):
         self.cp = mycprint(window)
+        self.clusters_to_1 = clusters_to_1
     
     def ordered_time_periods(self, years, df_per_vals, period_type=None):    
         order_by_type = {
@@ -39,122 +40,123 @@ class Analysis():
         columns_kept = ['IDOutlet', 'PeriodName', 'Purch']
 
         sku_report = {}
-        # try:
-        c = SUCCESS_OUTPUT_FORMAT
-        for sku in progress_bar(' Analysing SKUs '.center(30, '='), skus, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
-            # self.cp(f'sku: {sku} START')
-            # Filter skus dataframe for specfic sku
-            product, brand, _sku = map(int, sku.split('-'))
-            mask = (skus_df['IDProduct'] == product) & (skus_df['IDBrand'] == brand) & (skus_df['IDGoods'] == _sku)
-            sku_df = skus_df[mask]
-            sku_df = sku_df[columns_kept]
-            
-            # Locate years that appear in PeriodName
-            period_name_unique_values = skus_df['PeriodName'].unique()
-            years = [int(p.split()[-1]) for p in period_name_unique_values]
-            min_year = min(years)-1
-            max_year = max(years)+1
-            years = [y for y in range(min_year, max_year+1)]
-            
-            # Make the ordered periods for the columns
-            all_ordered_time_periods = self.ordered_time_periods(years, period_name_unique_values, period_type)
-            
-            # Pivot the table. Transform PeriodName from single column to multiple columns with the sales as values
-            pivoted_index = ['IDOutlet']
-            pivoted_values = ['Purch']
-            sku_df_pivoted = sku_df.pivot_table(index=pivoted_index, columns=['PeriodName'], values=pivoted_values).reset_index()
-            first_cols = [item[0] for item in sku_df_pivoted.columns if not item[-1]]
-            sku_df_pivoted.columns = [item[0] if not item[-1] else item[-1] for item in sku_df_pivoted.columns]
-            
-            # Extend columns with potentially missing periods
-            columns = first_cols + all_ordered_time_periods
-            sku_df_pivoted = sku_df_pivoted.reindex(columns, axis='columns')
-            
-            # Remove rows with only 0 or 1 non-missing sales values, since they will produce only NaN Diffs
-            sku_df_pivoted = sku_df_pivoted[
-                sku_df_pivoted[all_ordered_time_periods].count(axis='columns') > 1
-            ]
-            # Fill sales in periods with missing values
-            sku_df_pivoted[all_ordered_time_periods] = sku_df_pivoted[all_ordered_time_periods].fillna(0)
+        try:
+            c = SUCCESS_OUTPUT_FORMAT
+            for sku in progress_bar(' Analysing SKUs '.center(30, '='), skus, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
+                # self.cp(f'sku: {sku} START')
+                # Filter skus dataframe for specfic sku
+                product, brand, _sku = map(int, sku.split('-'))
+                mask = (skus_df['IDProduct'] == product) & (skus_df['IDBrand'] == brand) & (skus_df['IDGoods'] == _sku)
+                sku_df = skus_df[mask]
+                sku_df = sku_df[columns_kept]
+                
+                # Locate years that appear in PeriodName
+                period_name_unique_values = skus_df['PeriodName'].unique()
+                years = [int(p.split()[-1]) for p in period_name_unique_values]
+                min_year = min(years)-1
+                max_year = max(years)+1
+                years = [y for y in range(min_year, max_year+1)]
+                
+                # Make the ordered periods for the columns
+                all_ordered_time_periods = self.ordered_time_periods(years, period_name_unique_values, period_type)
+                
+                # Pivot the table. Transform PeriodName from single column to multiple columns with the sales as values
+                pivoted_index = ['IDOutlet']
+                pivoted_values = ['Purch']
+                sku_df_pivoted = sku_df.pivot_table(index=pivoted_index, columns=['PeriodName'], values=pivoted_values).reset_index()
+                first_cols = [item[0] for item in sku_df_pivoted.columns if not item[-1]]
+                sku_df_pivoted.columns = [item[0] if not item[-1] else item[-1] for item in sku_df_pivoted.columns]
+                
+                # Extend columns with potentially missing periods
+                columns = first_cols + all_ordered_time_periods
+                sku_df_pivoted = sku_df_pivoted.reindex(columns, axis='columns')
+                
+                # Remove rows with only 0 or 1 non-missing sales values, since they will produce only NaN Diffs
+                sku_df_pivoted = sku_df_pivoted[
+                    sku_df_pivoted[all_ordered_time_periods].count(axis='columns') > 1
+                ]
+                # Fill sales in periods with missing values
+                sku_df_pivoted[all_ordered_time_periods] = sku_df_pivoted[all_ordered_time_periods].fillna(0)
 
-            # If there are not at least two columns with positive sales, continue to next sku, since there can be no Diffs
-            positive_sales = [sku_df_pivoted[c].sum() > 0 for c in all_ordered_time_periods]
-            if not (sum(positive_sales) > 1):
-                continue
+                # If there are not at least two columns with positive sales, continue to next sku, since there can be no Diffs
+                positive_sales = [sku_df_pivoted[c].sum() > 0 for c in all_ordered_time_periods]
+                if not (sum(positive_sales) > 1):
+                    continue
 
-            # Drop trailing columns with no sales
-            first_period_with_sales_ind = positive_sales.index(True)
-            last_period_with_sales_ind = len(positive_sales) - positive_sales[::-1].index(True)
-            cleaned_period_columns = all_ordered_time_periods[first_period_with_sales_ind:last_period_with_sales_ind]
-            cleaned_columns = first_cols + cleaned_period_columns
-            sku_df_pivoted = sku_df_pivoted[cleaned_columns]
+                # Drop trailing columns with no sales
+                first_period_with_sales_ind = positive_sales.index(True)
+                last_period_with_sales_ind = len(positive_sales) - positive_sales[::-1].index(True)
+                cleaned_period_columns = all_ordered_time_periods[first_period_with_sales_ind:last_period_with_sales_ind]
+                cleaned_columns = first_cols + cleaned_period_columns
+                sku_df_pivoted = sku_df_pivoted[cleaned_columns]
 
-            # Create cluster column
-            cluster_dict = {'Mountly':'mountly', 'Food':'food', 'Non_Food':'non_food'}
-            cluster_column = sku_df_pivoted['IDOutlet'].map(clusters_df.set_index('id_outlet')[cluster_dict[period_type]])
-            # Replace NaN with 1.0, when 1. outlet is not in cluster file,
-            #                         or 2. outlet exists in cluster file but has missing value on the specific period type
-            cluster_column = cluster_column.fillna(1.0)
-            if 'cluster' not in sku_df_pivoted.columns:
-                location = sku_df_pivoted.columns.get_loc(cleaned_period_columns[0])
-                sku_df_pivoted.insert(location, 'cluster', cluster_column)
-                first_cols.append('cluster')
+                # Create cluster column
+                cluster_dict = {'Mountly':'mountly', 'Food':'food', 'Non_Food':'non_food'}
+                cluster_column = sku_df_pivoted['IDOutlet'].map(clusters_df.set_index('id_outlet')[cluster_dict[period_type]])
+                # Replace NaN with 1.0, when 1. outlet is not in cluster file,
+                #                         or 2. outlet exists in cluster file but has missing value on the specific period type
+                cluster_column = cluster_column.fillna(1.0)
+                if 'cluster' not in sku_df_pivoted.columns:
+                    location = sku_df_pivoted.columns.get_loc(cleaned_period_columns[0])
+                    sku_df_pivoted.insert(location, 'cluster', cluster_column)
+                    first_cols.append('cluster')
+                
+                # Create dfs with period differences
+                sku_df_with_diffs = sku_df_pivoted #.copy()
+                diff_columns = ['Diff_{}'.format(i+1) for i in range(len(cleaned_period_columns)-1)]
+                sku_df_with_diffs[diff_columns] = pd.DataFrame(sku_df_with_diffs[cleaned_period_columns].apply(lambda r:pd.Series(diffs(r)), axis='columns'))
+                
+                # Convert wide to long format
+                sku_df_with_diffs_long = pd.wide_to_long(sku_df_with_diffs, ['Diff_'], i='IDOutlet', j='Diff_Order')
+                sku_df_with_diffs_long = sku_df_with_diffs_long.reset_index()
+                sku_df_with_diffs_long = sku_df_with_diffs_long.rename(columns={'Diff_': 'Diff_Values'})
+                columns = first_cols + ['Diff_Values']
+                sku_df_with_diffs_long = sku_df_with_diffs_long[columns]
             
-            # Create dfs with period differences
-            sku_df_with_diffs = sku_df_pivoted #.copy()
-            diff_columns = ['Diff_{}'.format(i+1) for i in range(len(cleaned_period_columns)-1)]
-            sku_df_with_diffs[diff_columns] = pd.DataFrame(sku_df_with_diffs[cleaned_period_columns].apply(lambda r:pd.Series(diffs(r)), axis='columns'))
+                # Remove NaN Diff_Values
+                sku_df_with_diffs_long_clean = sku_df_with_diffs_long[sku_df_with_diffs_long['Diff_Values'].notnull()]
+
+                ###################### MAKE ALL CLUSTERS = 1 ######################
+                # sku_df_with_diffs_long_clean = sku_df_with_diffs_long_clean.copy()
+                if self.clusters_to_1:
+                    sku_df_with_diffs_long_clean.loc[:, 'cluster'] = 1
+                ###################################################################
             
-            # Convert wide to long format
-            sku_df_with_diffs_long = pd.wide_to_long(sku_df_with_diffs, ['Diff_'], i='IDOutlet', j='Diff_Order')
-            sku_df_with_diffs_long = sku_df_with_diffs_long.reset_index()
-            sku_df_with_diffs_long = sku_df_with_diffs_long.rename(columns={'Diff_': 'Diff_Values'})
-            columns = first_cols + ['Diff_Values']
-            sku_df_with_diffs_long = sku_df_with_diffs_long[columns]
-        
-            # Remove NaN Diff_Values
-            sku_df_with_diffs_long_clean = sku_df_with_diffs_long[sku_df_with_diffs_long['Diff_Values'].notnull()]
+                # Group by cluster
+                grouped_per_cluster = sku_df_with_diffs_long_clean[['cluster', 'Diff_Values']].groupby('cluster')
+                
+                # https://stackoverflow.com/questions/19894939/calculate-arbitrary-percentile-on-pandas-groupby
+                # https://pandas.pydata.org/pandas-docs/stable/user_guide/groupby.html?highlight=filter
+                # Coefficient of Variation (CV)
+                # https://en.wikipedia.org/wiki/Coefficient_of_variation
 
-            ###################### MAKE ALL CLUSTERS = 1 ######################
-            # sku_df_with_diffs_long_clean = sku_df_with_diffs_long_clean.copy()
-            sku_df_with_diffs_long_clean.loc[:, 'cluster'] = 1
-            ###################################################################
-        
-            # Group by cluster
-            grouped_per_cluster = sku_df_with_diffs_long_clean[['cluster', 'Diff_Values']].groupby('cluster')
-            
-            # https://stackoverflow.com/questions/19894939/calculate-arbitrary-percentile-on-pandas-groupby
-            # https://pandas.pydata.org/pandas-docs/stable/user_guide/groupby.html?highlight=filter
-            # Coefficient of Variation (CV)
-            # https://en.wikipedia.org/wiki/Coefficient_of_variation
+                report_df = grouped_per_cluster.agg(N=('Diff_Values','count'),
+                                                    min_Diff=('Diff_Values', np.min),
+                                                    max_Diff=('Diff_Values', np.max),
+                                                    mean_Diff=('Diff_Values', np.mean),
+                                                    std_Diff=('Diff_Values', np.std),
+                                                    CV_Diff=('Diff_Values', lambda x: np.std(x, ddof=1) / np.mean(x) if np.mean(x) else np.nan),
+                                                    perc90_Diff=('Diff_Values', lambda x: x.quantile(0.9)),
+                                                    perc95_Diff=('Diff_Values', lambda x: x.quantile(0.95)),
+                                                    perc99_Diff=('Diff_Values', lambda x: x.quantile(0.99)),
+                                                    ).reset_index()
 
-            report_df = grouped_per_cluster.agg(N=('Diff_Values','count'),
-                                                min_Diff=('Diff_Values', np.min),
-                                                max_Diff=('Diff_Values', np.max),
-                                                mean_Diff=('Diff_Values', np.mean),
-                                                std_Diff=('Diff_Values', np.std),
-                                                CV_Diff=('Diff_Values', lambda x: np.std(x, ddof=1) / np.mean(x) if np.mean(x) else np.nan),
-                                                perc90_Diff=('Diff_Values', lambda x: x.quantile(0.9)),
-                                                perc95_Diff=('Diff_Values', lambda x: x.quantile(0.95)),
-                                                perc99_Diff=('Diff_Values', lambda x: x.quantile(0.99)),
-                                                ).reset_index()
+                report_df = report_df[report_df['CV_Diff'].notnull()]
+                report_df['cluster'] = report_df['cluster'].astype(int)
 
-            report_df = report_df[report_df['CV_Diff'].notnull()]
-            report_df['cluster'] = report_df['cluster'].astype(int)
+                # REMOVE ROWS WITH 'N' < limit
+                limit = 10
+                report_df = report_df.loc[report_df['N'] >= limit]
 
-            # REMOVE ROWS WITH 'N' < limit
-            limit = 10
-            report_df = report_df.loc[report_df['N'] >= limit]
-
-            sku_report[sku] = report_df
-            # self.cp(f'sku: {sku} END {timer(start, time.time())}')
-        message = f'Sku analysis finished in {timer(start, time.time())}!'
-        return sku_report
-        # except:
-        #     c = ERROR_OUTPUT_FORMAT
-        #     message = 'Error while analysing SKUs'
-        # finally:
-        #     self.cp(message, c=c)
+                sku_report[sku] = report_df
+                # self.cp(f'sku: {sku} END {timer(start, time.time())}')
+            message = f'Sku analysis finished in {timer(start, time.time())}!'
+            return sku_report
+        except:
+            c = ERROR_OUTPUT_FORMAT
+            message = 'Error while analysing SKUs'
+        finally:
+            self.cp(message, c=c)
         
     def outlet_analysis(self, clusters_df, analysis_df, outlets_df, period_type):
         self.cp('Analysing Outlets ... please wait ...')
@@ -173,7 +175,8 @@ class Analysis():
             outlets_df['cluster'] = cluster_column.astype(int)
             ###################################################################
             ###################### MAKE ALL CLUSTERS = 1 ######################
-            outlets_df['cluster'] = 1
+            if self.clusters_to_1:
+                outlets_df['cluster'] = 1
             ###################################################################
             ###################################################################
             outlets_df['PeriodType'] = outlets_df['PeriodType'].map({'Mountly':1, 'Food':2, 'Non_Food':3})
@@ -253,6 +256,13 @@ class DbManager():
         self.cp = mycprint(window)
         self.create_tables()
 
+    def connection_is_open(self, con):
+        try:
+            con.cursor()
+            return True
+        except Exception as ex:
+            return False
+
     def create_tables(self):
         # Use context manager to auto close connection
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
@@ -306,8 +316,10 @@ class DbManager():
                                 duration = timer(start, time.time())
                                 message += f'\n{analysis_entries} rows succesfully deleted from "analysis" database table in {duration}!'
                         self.cp(message, c=SUCCESS_OUTPUT_FORMAT)
-                    except:
+                    except Exception as e:
                         self.cp(f'Error while clearing "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
+                    finally:
+                        pass
 
     def update_table(self, table_name, values=[], sku_df_dict=None, missing_atypicals_per_outlet=None):
         # Clear table
@@ -478,20 +490,20 @@ class IOManager():
                     self.delete_files(csv_filename)
             elif extension == '.csv':
                 df = pd.read_csv(filename, usecols=df_columns, sep=None, engine='python')#, dtype=column_types)
-            # Check if ptype of imported file contents agrees with selected ptype from menu
+            # input data validation
             if file_type == 'clusters':
                 if not df['IDOutlet'].is_unique or df['IDOutlet'].isnull().any():
                     raise
             else:
                 if df['PeriodType'].nunique(dropna=False) != 1 or df['PeriodType'].unique()[0] != selected_sku_type:
                     raise
+                if df[['IDOutlet','IDProduct','IDBrand','IDGoods']].applymap(lambda x: not x > 0).any().any():
+                    raise
             if file_type == 'skus':
-                if any([df[c].isnull().any() for c in ['IDOutlet','PeriodName','SKU Name', 'IDProduct','IDBrand','IDGoods']]):
+                if df[['PeriodName','SKU Name']].isnull().any().any():
                     raise
             if file_type == 'outlets':
                 if df['PeriodName'].nunique(dropna=False) != 1 or df['PeriodName'].isnull().any():
-                    raise
-                if any([df[c].isnull().any() for c in ['IDOutlet','IDProduct','IDBrand','IDGoods']]):
                     raise
             duration = timer(start, time.time())
             if file_type == 'skus':
