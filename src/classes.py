@@ -230,9 +230,9 @@ class Analysis():
                                     # Approximating the solution that is > than LMPurch, so we give an initial value > LMPurch
                                     r['LMPurch'] + 1,
                                 ), axis='columns')
-                    outlet_line_dicts = [{h:v for h,v in zip(df.columns, line)} for line in df.values.tolist()]
+                    atypicals_line_dicts = [{h:v for h,v in zip(df.columns, line)} for line in df.values.tolist()]
                     # Add atypicals of specific outlet to the "atypicals" list containing all the atypicals
-                    missing_atypicals_per_outlet[outlet_id]['atypicals'] = outlet_line_dicts
+                    missing_atypicals_per_outlet[outlet_id]['atypicals'] = atypicals_line_dicts
             message1 = f'Outlet analysis finished in {timer(start, time.time())}!'
             message2 = '\n'.join([f"Store {k}: {len(v['atypicals'])} atypical, {len(v['missing'])} missing SKU(s) found"
                                 for k,v in missing_atypicals_per_outlet.items()])
@@ -269,7 +269,7 @@ class DbManager():
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             # Use context manager to auto commit or rollback
             with _con as con:
-                for sql  in [CREATE_CLUSTERS_SQL, CREATE_SKUS_SQL, CREATE_ANALYSIS_SQL, CREATE_OUTLET_SQL, CREATE_MISSING_SQL]:
+                for sql  in [CREATE_CLUSTERS_SQL, CREATE_SKUS_SQL, CREATE_ANALYSIS_SQL, CREATE_ATYPICALS_SQL, CREATE_MISSING_SQL]:
                     con.execute(sql)
 
     def table_exists(self, table_name):
@@ -335,7 +335,7 @@ class DbManager():
                 try:
                     # Get database table columns
                     db_columns = [c[1] for c in con.execute(f'PRAGMA table_info({table_name})').fetchall()[1:]]
-                    # Make values for tables with foreign key (analysis, outlets)
+                    # Make values for tables with foreign key (analysis, atypicals)
                     if table_name =='analysis':
                         values = []
                         for sku_id, df in sku_df_dict.items():
@@ -348,7 +348,7 @@ class DbManager():
                             for row_dict in miss_atyp_dict['missing']:
                                 values.append(['-'.join(row_dict['sku_id'].split('-')[:-1]), row_dict['PeriodType'], row_dict['cluster'],
                                             outlet_id, row_dict['LMPurch'], row_dict['Purch']])
-                    elif table_name == 'outlets':
+                    elif table_name == 'atypicals':
                         values = []
                         for outlet_id, miss_atyp_dict in missing_atypicals_per_outlet.items():
                             for row_dict in miss_atyp_dict['atypicals']:
@@ -398,10 +398,10 @@ class DbManager():
                                   perc95_diff,perc99_diff
                                   FROM analysis LEFT JOIN skus ON analysis.sku_id=skus.id''' 
                         df = pd.read_sql_query(sql, con)
-                    elif table_name == 'outlets':
+                    elif table_name == 'atypicals':
                         sql = f'''SELECT oa.id_outlet, oa.cluster, skus.period_type, skus.sku_id, skus.sku_name, oa.lm_purch, 
                                   oa.purch, oa.stars, oa.proposed_purch_1, oa.proposed_purch_2
-                                  FROM (outlets LEFT JOIN analysis ON outlets.analysis_id=analysis.id) AS oa
+                                  FROM (atypicals LEFT JOIN analysis ON atypicals.analysis_id=analysis.id) AS oa
                                   LEFT JOIN skus on oa.sku_id=skus.id'''
                         df = pd.read_sql_query(sql, con)
                     if table_name != 'clusters':
@@ -439,31 +439,43 @@ class IOManager():
         call(['cscript.exe', vbscript, excel_filename, csv_filename, '1'])
         self.cp('Reading csv file ... please wait ...')
 
-    def export_files(self, table_name):
+    def export_files(self, table_name, popup=True):
         table_is_empty = self.db.table_is_empty(table_name)
-        table_name_message = {'clusters':'clusters','skus':'skus','analysis':'skus','outlets':'outlets','missing':'outlets'}
+        table_name_message = {'clusters':'clusters','skus':'skus','analysis':'skus','atypicals':'outlets','missing':'outlets'}
         if table_is_empty:
             self.cp(f'"{table_name}" data base table is empty. Please import {table_name_message[table_name]}', c=WARNING_OUTPUT_FORMAT, l=True)
         else:
-            table_df = self.db.table_to_df(table_name, drop_id=True, count=True)
-            default_export_name = (table_name if table_name != 'outlets' else 'atypicals').title()
-            table_file = sg.popup_get_file('', save_as=True, no_window=True,
-                                            initial_folder=os.getcwd(),
-                                            default_extension='.xlsx',
-                                            default_path=f'{default_export_name}Export.xlsx',
-                                            file_types=(('Excel files',"*.xlsx"),))
-            if table_file:
-                start = time.time()
-                try:
-                    c = SUCCESS_OUTPUT_FORMAT
+            try:
+                c = SUCCESS_OUTPUT_FORMAT
+                if popup:
+                    default_export_name = table_name.title()
+                    table_file = sg.popup_get_file('', save_as=True, no_window=True,
+                                                    initial_folder=os.getcwd(),
+                                                    default_extension='.xlsx',
+                                                    default_path=f'{default_export_name}Export.xlsx',
+                                                    file_types=(('Excel files',"*.xlsx"),))
+                if not popup or table_file:
+                    start = time.time()
+                    table_df = self.db.table_to_df(table_name, drop_id=True, count=True)
+                if popup and table_file:
                     table_df.to_excel(table_file, index=False, freeze_panes=(1,0))
                     duration = timer(start, time.time())
                     message = f'{os.path.split(table_file)[1]} succesfully exported in {duration}!'
-                except:
-                    c = ERROR_OUTPUT_FORMAT
-                    message = 'Error while exporting file. Make sure a file with the same name is not open'
-                finally:
-                    self.cp(message, c=c)
+                elif not popup:
+                    return table_df
+            except:
+                c = ERROR_OUTPUT_FORMAT
+                message = 'Error while exporting file. Make sure a file with the same name is not open'
+            finally:
+                self.cp(message, c=c)
+
+    def export_total(self):
+        clusters_df = self.export_files('clusters', popup=False)
+        skus_df = self.export_files('skus', popup=False)
+        analysis_df = self.export_files('analysis', popup=False)
+        outlets_df = self.export_files('atypicals', popup=False)
+        missing_df = self.export_files('missing', popup=False)
+        print('FINISHED')
 
     def parse_file(self, filename, file_type=None, selected_sku_type=None):
         start = time.time()

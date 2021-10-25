@@ -138,8 +138,8 @@ CREATE TABLE IF NOT EXISTS "analysis" (
 	"sku_id" integer NULL REFERENCES "skus" ("id") DEFERRABLE INITIALLY DEFERRED
 )
 '''
-CREATE_OUTLET_SQL = '''
-CREATE TABLE IF NOT EXISTS "outlets" (
+CREATE_ATYPICALS_SQL = '''
+CREATE TABLE IF NOT EXISTS "atypicals" (
 	"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
     "id_outlet" integer unsigned NULL CHECK ("id_outlet" >= 0),
 	"lm_purch" real NULL,

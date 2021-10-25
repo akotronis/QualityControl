@@ -33,7 +33,8 @@ layout = [
         tearoff=False,
         bar_background_color='#f0f0f0',
         background_color='#f0f0f0',
-        text_color='black',)],
+        text_color='black',
+        key='-MN-')],
     [sg.Multiline(size=(100,20),
         pad=0,
         background_color='black', 
@@ -86,6 +87,9 @@ while 1:
                 db.update_table('clusters', clusters_df.values.tolist())
     # MENU "Import" -> SKUs or Outlets
     elif '::IS' in event or '::IO' in event:
+        # menu_def[0][1][0] = '!' + menu_def[0][1][0]
+        # window['-MN-'].Update(menu_def)
+        # print(menu_def[0][1][0])
         clusters_is_empty = db.table_is_empty('clusters')
         if clusters_is_empty:
             cp('"clusters" data base table is empty. Please import clusters', c=WARNING_OUTPUT_FORMAT, l=True)
@@ -97,7 +101,7 @@ while 1:
             file_type = 'skus' if '::IS' in event else 'outlets'
             selected_ptype = event[-1]
             input_file_ptype = {'M':'(MONTHLY)', 'F':'(BIMONTHLY - FOOD)', 'N':'(BIMONTHLY - NON FOOD)'}
-            input_file = sg.popup_get_file(f'Select {file_type.upper()} file {input_file_ptype[selected_ptype]}', file_types=(('CSV files',"*.csv"), ('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
+            input_file = sg.popup_get_file(f'Select {file_type.upper()} file {input_file_ptype[selected_ptype]}', title=f'Select {file_type.upper()}', file_types=(('CSV files',"*.csv"), ('Excel files',"*.xlsx"), ('Excel files',"*.xls")))
             if input_file:
                 input_file_ptype = {'M':'Mountly', 'F':'Food', 'N':'Non_Food'}
                 imported_ptype = input_file_ptype[selected_ptype]
@@ -155,7 +159,7 @@ while 1:
                         #########################################################
                         #########################################################
                         if missing_atypicals_per_outlet is not None:
-                            db.update_table('outlets', missing_atypicals_per_outlet=missing_atypicals_per_outlet)
+                            db.update_table('atypicals', missing_atypicals_per_outlet=missing_atypicals_per_outlet)
                             db.update_table('missing', missing_atypicals_per_outlet=missing_atypicals_per_outlet)
     # MENU "Export -> Clusters
     elif event.endswith('::EC'):
@@ -171,7 +175,9 @@ while 1:
         iom.export_files('missing')
     # MENU "Export -> Outlets Atypicals
     elif event.endswith('::EOA'):
-        iom.export_files('outlets')
+        iom.export_files('atypicals')
+    elif event.endswith('::ET'):
+        iom.export_total()
     # MENU "Delete" -> Delete table rows
     elif '::D' in event:
         table_name = 'clusters' if event.endswith('::DC') else 'skus'
@@ -184,7 +190,7 @@ while 1:
             if popup_yes_no(title, message):
                 db.delete_table_rows('skus')
                 db.delete_table_rows('missing')
-                db.delete_table_rows('outlets')
+                db.delete_table_rows('atypicals')
     # MENU "Console" -> Clear Console
     elif event.endswith('::CC'):
         cp('', u=True)
