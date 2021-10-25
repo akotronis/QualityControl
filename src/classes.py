@@ -159,7 +159,7 @@ class Analysis():
             self.cp(message, c=c)
         
     def outlet_analysis(self, clusters_df, analysis_df, outlets_df, period_type):
-        self.cp('Analysing Outlets ... please wait ...')
+        self.cp(f'Analysing Outlets (preprocessing data) ... please wait ...')
         start = time.time()
         try:
             c1 = SUCCESS_OUTPUT_FORMAT
@@ -237,10 +237,11 @@ class Analysis():
             message2 = '\n'.join([f"Store {k}: {len(v['atypicals'])} atypical, {len(v['missing'])} missing SKU(s) found"
                                 for k,v in missing_atypicals_per_outlet.items()])
             return missing_atypicals_per_outlet
-        except:
+        except Exception as e:
             c1 = ERROR_OUTPUT_FORMAT
             message1 = 'Error while analysing Outlets'
             message2 = ''
+            print(e)
         finally:
             self.cp(message1, c=c1)
             self.cp(message2, c=c2)
@@ -278,11 +279,14 @@ class DbManager():
                 sql = f"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table_name}'"
                 return con.execute(sql).fetchone()[0]
 
-    def table_is_empty(self, table_name):
+    def table_count(self, table_name):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
                 sql = f"SELECT COUNT(*) FROM {table_name}"
-                return not con.execute(sql).fetchone()[0]
+                return con.execute(sql).fetchone()[0]
+
+    def table_is_empty(self, table_name):
+        return not self.table_count(table_name)
 
     def skus_already_in_database(self, sku_ids, selected_period_type):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
@@ -403,7 +407,8 @@ class DbManager():
                     if table_name != 'clusters':
                         added_columns = ['id_product', 'id_brand', 'id_sku']
                         df[added_columns] = df['sku_id'].str.split('-', expand=True).astype(int)
-                        df = df.drop('sku_id', axis='columns')
+                        if drop_id:
+                            df = df.drop('sku_id', axis='columns')
                         id_cols = [c for c in df.columns if 'id_' in c]
                         other_cols = [c for c in df.columns if c not in id_cols]
                         df = df[id_cols + other_cols]

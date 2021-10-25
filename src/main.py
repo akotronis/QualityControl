@@ -19,7 +19,7 @@ sg.set_options(element_padding=(0, 0))
 # ------ Menu Definition ------ #
 menu_def = [
     ['Import', ['Clusters::IC', 'SKUs', ['Monthly::ISM', 'Bimonthly - Food::ISF', 'Bimonthly - Non Food::ISN'], 'Outlets', ['Monthly::IOM', 'Bimonthly - Food::IOF', 'Bimonthly - Non Food::ION']]],
-    ['Export', ['Clusters::EC', 'SKUs', ['SKUs::ES', 'SKU Analysis::ESA'], 'Outlets', ['Missing::EOM','Atypicals::EOA']]],
+    ['Export', ['Clusters::EC', 'SKUs', ['SKUs::ES', 'SKU Analysis::ESA'], 'Outlets', ['Missing::EOM','Atypicals::EOA'], '---', 'Total Report::ET']],
     ['Delete', ['Clusters::DC', 'SKUs::DS']],
     ['Console', ['Clear::CC']],
     ['About', ['SKU Quality Control Application::AA', '---', 'Importing', ['Clusters::AC', 'SKUs::AS', 'Outlets::AO'], '---', 'Read the Docs::AD']],
@@ -64,7 +64,7 @@ window = sg.Window("SKU Quality Control Application",
 #################################################
 
 ##################### MAIN CLASSES ####################
-CLUSTERS_TO_1 = True
+CLUSTERS_TO_1 = False
 cp = mycprint(window)
 db = DbManager(window)
 iom = IOManager(window, db)
@@ -174,12 +174,13 @@ while 1:
         iom.export_files('outlets')
     # MENU "Delete" -> Delete table rows
     elif '::D' in event:
+        table_name = 'clusters' if event.endswith('::DC') else 'skus'
+        table_count = db.table_count(table_name)
+        message = f'This WILL DELETE all rows ({table_count})\nfrom "{table_name}" database table.'
         if event.endswith('::DC'):
-            message = f'This WILL DELETE all rows\nfrom "clusters" database table.'
             if popup_yes_no(title, message):
                 db.delete_table_rows('clusters')
         if event.endswith('::DS'):
-            message = f'This WILL DELETE all rows\nfrom "skus" database table.'
             if popup_yes_no(title, message):
                 db.delete_table_rows('skus')
                 db.delete_table_rows('missing')
@@ -206,4 +207,3 @@ while 1:
                 f.write(html)
             webbrowser.open(url)
 window.close()
-# test for git
