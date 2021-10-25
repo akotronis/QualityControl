@@ -279,10 +279,13 @@ class DbManager():
                 sql = f"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table_name}'"
                 return con.execute(sql).fetchone()[0]
 
-    def table_count(self, table_name):
+    def table_count(self, table_name, period_type=False):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
-                sql = f"SELECT COUNT(*) FROM {table_name}"
+                where = ''
+                if period_type:
+                    where = f' WHERE period_type={period_type}'
+                sql = f"SELECT COUNT(*) FROM {table_name}{where}"
                 return con.execute(sql).fetchone()[0]
 
     def table_is_empty(self, table_name):
@@ -467,7 +470,8 @@ class IOManager():
                 c = ERROR_OUTPUT_FORMAT
                 message = 'Error while exporting file. Make sure a file with the same name is not open'
             finally:
-                self.cp(message, c=c)
+                if popup and table_file:
+                    self.cp(message, c=c)
 
     def export_total(self):
         clusters_df = self.export_files('clusters', popup=False)

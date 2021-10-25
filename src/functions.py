@@ -287,6 +287,14 @@ def progress_bar(key, iterable, *args, title='', **kwargs):
         if not sg.one_line_progress_meter(title, i+1, len(iterable), key, *args, **kwargs):
             break
 
+def toggle_menu(menu_def, window, enable=True):
+    for item in menu_def:
+        if item[0].startswith('!') and enable:
+            item[0] = item[0][1:]
+        if not item[0].startswith('!') and not enable:
+            item[0] = '!' + item[0]
+    window['-MN-'].Update(menu_def)
+    return menu_def
 
 def popup_yes_no(title='', message=''):
     '''A confirmation popup
