@@ -328,58 +328,58 @@ class DbManager():
         c = SUCCESS_OUTPUT_FORMAT
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
-                # try:
-                # Get database table columns
-                db_columns = [c[1] for c in con.execute(f'PRAGMA table_info({table_name})').fetchall()[1:]]
-                # Make values for tables with foreign key (analysis, outlets)
-                if table_name =='analysis':
-                    values = []
-                    for sku_id, df in sku_df_dict.items():
-                        sku_row_id = con.execute(f'SELECT id from skus WHERE sku_id="{sku_id}"').fetchone()[0]
-                        rows = [row + [sku_row_id] for row in df.values.tolist()]
-                        values.extend(rows)
-                elif table_name == 'missing':
-                    values = []
-                    for outlet_id, miss_atyp_dict in missing_atypicals_per_outlet.items():
-                        for row_dict in miss_atyp_dict['missing']:
-                            values.append(['-'.join(row_dict['sku_id'].split('-')[:-1]), row_dict['PeriodType'], row_dict['cluster'],
-                                           outlet_id, row_dict['LMPurch'], row_dict['Purch']])
-                elif table_name == 'outlets':
-                    values = []
-                    for outlet_id, miss_atyp_dict in missing_atypicals_per_outlet.items():
-                        for row_dict in miss_atyp_dict['atypicals']:
-                            sku_id = '-'.join(row_dict['sku_id'].split('-')[:-1])
-                            period_type = row_dict['PeriodType']
-                            cluster = row_dict['cluster']
-                            sql = f'''SELECT id FROM
-                                        (SELECT analysis.id, skus.sku_id, period_type, cluster
-                                            FROM analysis JOIN skus ON analysis.sku_id=skus.id)
-                                        WHERE sku_id="{sku_id}" AND period_type={period_type} AND cluster={cluster}
-                                    '''
-                            analysis_id = con.execute(sql).fetchone()
-                            # analysis_id = analysis_id[0]
-                            if analysis_id is not None:
-                                analysis_id = analysis_id[0]
-                            else:
-                                print(f'{sku_id}, ptype:{period_type}, cluster:{cluster}')
-                            row = [outlet_id, row_dict['LMPurch'], row_dict['Purch'], row_dict['stars'],
-                                    row_dict['proposed_purch_1'], row_dict['proposed_purch_2'], analysis_id]
-                            values.append(row)
-                if values:
-                    # Insert values
-                    self.cp(f'Inserting {len(values)} rows in "{table_name}" database table ... please wait ...')
-                    start = time.time()
-                    con.executemany(f'INSERT INTO {table_name}({", ".join(db_columns)}) VALUES ({", ".join(len(values[0]) * ["?"])})', values)
-                    db_entries = con.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
-                    duration = timer(start, time.time())
-                    message = f'"{table_name}" database table succesfully updated in {duration}! Current rows: {db_entries}'
-                    
-                else:
-                    message = f'No values to insert in "{table_name}" database table'
-                    c = WARNING_OUTPUT_FORMAT
-                self.cp(message, c=c)
-                # except:
-                #     self.cp(f'Error while updating "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
+                try:
+                    # Get database table columns
+                    db_columns = [c[1] for c in con.execute(f'PRAGMA table_info({table_name})').fetchall()[1:]]
+                    # Make values for tables with foreign key (analysis, outlets)
+                    if table_name =='analysis':
+                        values = []
+                        for sku_id, df in sku_df_dict.items():
+                            sku_row_id = con.execute(f'SELECT id from skus WHERE sku_id="{sku_id}"').fetchone()[0]
+                            rows = [row + [sku_row_id] for row in df.values.tolist()]
+                            values.extend(rows)
+                    elif table_name == 'missing':
+                        values = []
+                        for outlet_id, miss_atyp_dict in missing_atypicals_per_outlet.items():
+                            for row_dict in miss_atyp_dict['missing']:
+                                values.append(['-'.join(row_dict['sku_id'].split('-')[:-1]), row_dict['PeriodType'], row_dict['cluster'],
+                                            outlet_id, row_dict['LMPurch'], row_dict['Purch']])
+                    elif table_name == 'outlets':
+                        values = []
+                        for outlet_id, miss_atyp_dict in missing_atypicals_per_outlet.items():
+                            for row_dict in miss_atyp_dict['atypicals']:
+                                sku_id = '-'.join(row_dict['sku_id'].split('-')[:-1])
+                                period_type = row_dict['PeriodType']
+                                cluster = row_dict['cluster']
+                                sql = f'''SELECT id FROM
+                                            (SELECT analysis.id, skus.sku_id, period_type, cluster
+                                                FROM analysis JOIN skus ON analysis.sku_id=skus.id)
+                                            WHERE sku_id="{sku_id}" AND period_type={period_type} AND cluster={cluster}
+                                        '''
+                                analysis_id = con.execute(sql).fetchone()
+                                # analysis_id = analysis_id[0]
+                                if analysis_id is not None:
+                                    analysis_id = analysis_id[0]
+                                else:
+                                    print(f'{sku_id}, ptype:{period_type}, cluster:{cluster}')
+                                row = [outlet_id, row_dict['LMPurch'], row_dict['Purch'], row_dict['stars'],
+                                        row_dict['proposed_purch_1'], row_dict['proposed_purch_2'], analysis_id]
+                                values.append(row)
+                    if values:
+                        # Insert values
+                        self.cp(f'Inserting {len(values)} rows in "{table_name}" database table ... please wait ...')
+                        start = time.time()
+                        con.executemany(f'INSERT INTO {table_name}({", ".join(db_columns)}) VALUES ({", ".join(len(values[0]) * ["?"])})', values)
+                        db_entries = con.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+                        duration = timer(start, time.time())
+                        message = f'"{table_name}" database table succesfully updated in {duration}! Current rows: {db_entries}'
+                        
+                    else:
+                        message = f'No values to insert in "{table_name}" database table'
+                        c = WARNING_OUTPUT_FORMAT
+                    self.cp(message, c=c)
+                except:
+                    self.cp(f'Error while updating "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
 
     def table_to_df(self, table_name, count=False, rename=False, drop_id=False):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
