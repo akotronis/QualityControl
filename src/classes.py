@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import sqlite3
-from subprocess import call
+from subprocess import call, DEVNULL, STDOUT
 import time
 
 from functions import *
@@ -405,16 +405,24 @@ class DbManager():
                         df = pd.read_sql_query(f"SELECT {','.join(db_columns)} FROM {table_name}", con)
                     elif table_name == 'analysis':
                         count = 'count,' if export else ''
-                        join = 'FULL OUTER' if export else 'LEFT'
-                        sql = f'''SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {count}mean_diff, perc90_diff,
-                                  perc95_diff,perc99_diff
-                                  FROM analysis {join} JOIN skus ON analysis.sku_id=skus.id''' 
+                        if not export:
+                            sql = f'''SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {count}mean_diff, perc90_diff,
+                                        perc95_diff,perc99_diff
+                                        FROM analysis LEFT JOIN skus ON analysis.sku_id=skus.id''' 
+                        else:
+                            sql = f'''SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {count}mean_diff, perc90_diff,
+                                        perc95_diff,perc99_diff
+                                        FROM skus LEFT JOIN analysis ON skus.id=analysis.sku_id
+                                        UNION
+                                      SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {count}mean_diff, perc90_diff,
+                                        perc95_diff,perc99_diff
+                                        FROM analysis LEFT JOIN skus ON skus.id=analysis.sku_id'''
                         df = pd.read_sql_query(sql, con)
                     elif table_name == 'atypicals':
                         sql = f'''SELECT oa.id_outlet, oa.cluster, skus.period_type, skus.sku_id, skus.sku_name, oa.lm_purch, 
-                                  oa.purch, oa.stars, oa.proposed_purch_1, oa.proposed_purch_2
-                                  FROM (atypicals LEFT JOIN analysis ON atypicals.analysis_id=analysis.id) AS oa
-                                  LEFT JOIN skus on oa.sku_id=skus.id'''
+                                    oa.purch, oa.stars, oa.proposed_purch_1, oa.proposed_purch_2
+                                    FROM (atypicals LEFT JOIN analysis ON atypicals.analysis_id=analysis.id) AS oa
+                                    LEFT JOIN skus on oa.sku_id=skus.id'''
                         df = pd.read_sql_query(sql, con)
                     if table_name != 'clusters':
                         added_columns = ['id_product', 'id_brand', 'id_sku']
@@ -448,7 +456,8 @@ class IOManager():
     def excel_to_csv(self, vbscript, excel_filename, csv_filename):
         with open(vbscript, 'w') as f:
             f.write(VB_EXCEL_TO_CSV)
-        call(['cscript.exe', vbscript, excel_filename, csv_filename, '1'])
+        # call(['cscript.exe', vbscript, excel_filename, csv_filename, '1'])
+        subprocess_call(['cscript.exe', vbscript, excel_filename, csv_filename, '1'])
         self.cp('Reading csv file ... please wait ...')
 
     def export_files(self, table_name, popup=True):

@@ -2,6 +2,9 @@ from math import log
 import numpy as np
 import pandas as pd
 import PySimpleGUI as sg
+import subprocess
+import sys
+
 
 
 APP_INFO_MESSAGE = 3*'''App info message'''
@@ -213,6 +216,7 @@ def diffs_old(r):
             output.append(item)
     return output
 
+
 def diffs(df):
     diff_columns = ['Diff_{}'.format(i+1) for i in range(len(df.columns)-1)]
     values = []
@@ -311,3 +315,15 @@ def popup_yes_no(title='', message=''):
     event, values = window.read()
     window.close()
     return event == 'Yes'
+
+
+def subprocess_call(*args, **kwargs):
+    #also works for Popen. It creates a new *hidden* window, so it will work in frozen apps (.exe).
+    IS_WIN32 = 'win32' in str(sys.platform).lower()
+    if IS_WIN32:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        kwargs['startupinfo'] = startupinfo
+    retcode = subprocess.call(*args, **kwargs)
+    return retcode
