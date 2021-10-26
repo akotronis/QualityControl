@@ -1,5 +1,6 @@
 from math import log
 import numpy as np
+import pandas as pd
 import PySimpleGUI as sg
 
 
@@ -79,24 +80,17 @@ if WScript.Arguments.Count < 3 Then
     WScript.Echo "Please specify the source and the destination files. Usage: ExcelToCsv <xls/xlsx source file> <csv destination file> <worksheet number (starts at 1)>"
     Wscript.Quit
 End If
-
 csv_format = 6
-
 Set objFSO = CreateObject("Scripting.FileSystemObject")
-
 src_file = objFSO.GetAbsolutePathName(Wscript.Arguments.Item(0))
 dest_file = objFSO.GetAbsolutePathName(WScript.Arguments.Item(1))
 worksheet_number = CInt(WScript.Arguments.Item(2))
-
 Dim oExcel
 Set oExcel = CreateObject("Excel.Application")
-
 Dim oBook
 Set oBook = oExcel.Workbooks.Open(src_file)
 oBook.Worksheets(worksheet_number).Activate
-
 oBook.SaveAs dest_file, csv_format
-
 oBook.Close False
 oExcel.Quit
 '''
@@ -195,11 +189,11 @@ def timer(start, end):
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     if not (hours or minutes):
-        txt, vals = "{:05.2f}s", (seconds,)
+        txt, vals = "{:05.2f}sec", (seconds,)
     elif not hours:
-        txt, vals = "{}m:{:05.2f}s", (int(minutes),seconds)
+        txt, vals = "{}min:{:05.2f}sec", (int(minutes),seconds)
     else:
-        txt, vals = "{}h:{}m:{:05.2f}s", (int(hours),int(minutes),seconds)
+        txt, vals = "{}hour:{}min:{:05.2f}sec", (int(hours),int(minutes),seconds)
     return txt.format(*vals)
 
 
@@ -208,7 +202,7 @@ def join_columns(df, col_list, sep='-'):
     return new_col
 
 
-def diffs(r):
+def diffs_old(r):
     output = []
     for i,v in enumerate(r):
         if i < len(r) - 1:
@@ -218,6 +212,14 @@ def diffs(r):
                 item = r[i] * log(r[i] / r[i+1]) + r[i+1] - r[i]
             output.append(item)
     return output
+
+def diffs(df):
+    diff_columns = ['Diff_{}'.format(i+1) for i in range(len(df.columns)-1)]
+    values = []
+    for _, row in df.iterrows():
+        values.append(diffs_old(row.values))
+    df_result = pd.DataFrame({col:lst_v for col, lst_v in zip(diff_columns, list(zip(*values)))}, index=df.index)
+    return df_result
 
 
 def newton(f, Df, x0, epsilon=1e-6, max_iter=100):

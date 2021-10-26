@@ -6,6 +6,7 @@ import pandas as pd
 import PySimpleGUI as sg
 import tempfile
 import webbrowser
+
 from classes import *
 from functions import *
 
@@ -64,8 +65,9 @@ window = sg.Window("SKU Quality Control Application",
 # skus_file = os.path.join(test_files_dir, 'skus', 'Monthly-Juice.xlsx')
 #################################################
 
-##################### MAIN CLASSES ####################
-CLUSTERS_TO_1 = False
+################ MAIN CLASSES-CONSTANTS ##############
+CLUSTERS_TO_1 = True
+COUNTS_LOWER_BOUND = 10
 cp = mycprint(window)
 db = DbManager(window)
 iom = IOManager(window, db)
@@ -112,7 +114,7 @@ while 1:
         clusters_df = db.table_to_df('clusters')
         if parse_output is None or clusters_df is None:
             continue
-        analysis_class = Analysis(window, CLUSTERS_TO_1)
+        analysis_class = Analysis(window, CLUSTERS_TO_1, COUNTS_LOWER_BOUND)
         # MENU "Import" -> SKUs
         if file_type == 'skus':
             skus_df, sku_ids_names_dict = parse_output
@@ -139,8 +141,6 @@ while 1:
             except:
                 sku_df_dict = analysis_class.sku_analysis(clusters_df, skus_df, sku_ids, imported_ptype)
             #########################################################
-            #########################################################
-            #########################################################
             if sku_df_dict is not None:
                 db.update_table('analysis', sku_df_dict=sku_df_dict)
         else:
@@ -161,8 +161,6 @@ while 1:
                     lp.print_stats(f)
             except:
                 missing_atypicals_per_outlet = analysis_class.outlet_analysis(clusters_df, analysis_df, outlets_df, imported_ptype)
-            #########################################################
-            #########################################################
             #########################################################
             if missing_atypicals_per_outlet is not None:
                 db.update_table('atypicals', missing_atypicals_per_outlet=missing_atypicals_per_outlet)

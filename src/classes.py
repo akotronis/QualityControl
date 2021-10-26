@@ -10,9 +10,10 @@ from functions import *
 
 class Analysis():
 
-    def __init__(self, window, clusters_to_1=False):
+    def __init__(self, window, clusters_to_1=False, counts_lower_bound=0):
         self.cp = mycprint(window)
         self.clusters_to_1 = clusters_to_1
+        self.counts_lower_bound = counts_lower_bound
     
     def ordered_time_periods(self, years, df_per_vals, period_type=None):    
         order_by_type = {
@@ -34,7 +35,7 @@ class Analysis():
     def sku_analysis(self, clusters_df, skus_df, skus, period_type):
         ''' Returns dict of type {sku_name_1:sku_df_1, sku_name_2:sku_df_2, ...}'''
 
-        self.cp('Analysing SKUs ... please wait ...')
+        self.cp(f'Analysing SKUs ({period_type[0]}) ... please wait ...')
         start = time.time()
         # Needed columns
         columns_kept = ['IDOutlet', 'PeriodName', 'Purch']
@@ -42,7 +43,7 @@ class Analysis():
         sku_report = {}
         try:
             c = SUCCESS_OUTPUT_FORMAT
-            for sku in progress_bar(' Analysing SKUs '.center(30, '='), skus, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
+            for sku in progress_bar(f' Analysing SKUs ({period_type[0]}) '.center(30, '='), skus, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
                 # self.cp(f'sku: {sku} START')
                 # Filter skus dataframe for specfic sku
                 product, brand, _sku = map(int, sku.split('-'))
@@ -51,7 +52,7 @@ class Analysis():
                 sku_df = sku_df[columns_kept]
                 
                 # Locate years that appear in PeriodName
-                period_name_unique_values = skus_df['PeriodName'].unique()
+                period_name_unique_values = set(skus_df['PeriodName'].values)
                 years = [int(p.split()[-1]) for p in period_name_unique_values]
                 min_year = min(years)-1
                 max_year = max(years)+1
@@ -102,10 +103,13 @@ class Analysis():
                     first_cols.append('cluster')
                 
                 # Create dfs with period differences
-                sku_df_with_diffs = sku_df_pivoted #.copy()
+                sku_df_with_diffs = sku_df_pivoted.reset_index(drop=True) #.copy()
                 diff_columns = ['Diff_{}'.format(i+1) for i in range(len(cleaned_period_columns)-1)]
-                sku_df_with_diffs[diff_columns] = pd.DataFrame(sku_df_with_diffs[cleaned_period_columns].apply(lambda r:pd.Series(diffs(r)), axis='columns'))
-                
+                # Slower way
+                # sku_df_with_diffs[diff_columns] = sku_df_with_diffs[cleaned_period_columns].apply(lambda r:pd.Series(diffs_old(r)), axis='columns')
+                # Faster way
+                sku_df_with_diffs[diff_columns] = diffs(sku_df_with_diffs[cleaned_period_columns])
+
                 # Convert wide to long format
                 sku_df_with_diffs_long = pd.wide_to_long(sku_df_with_diffs, ['Diff_'], i='IDOutlet', j='Diff_Order')
                 sku_df_with_diffs_long = sku_df_with_diffs_long.reset_index()
@@ -145,28 +149,32 @@ class Analysis():
                 report_df['cluster'] = report_df['cluster'].astype(int)
 
                 # REMOVE ROWS WITH 'N' < limit
-                limit = 10
-                report_df = report_df.loc[report_df['N'] >= limit]
+                if self.counts_lower_bound:
+                    report_df = report_df.loc[report_df['N'] >= self.counts_lower_bound]
 
                 sku_report[sku] = report_df
                 # self.cp(f'sku: {sku} END {timer(start, time.time())}')
             message = f'Sku analysis finished in {timer(start, time.time())}!'
             return sku_report
-        except:
+        except Exception as e:
             c = ERROR_OUTPUT_FORMAT
             message = 'Error while analysing SKUs'
+            print(e)
         finally:
             self.cp(message, c=c)
         
     def outlet_analysis(self, clusters_df, analysis_df, outlets_df, period_type):
-        self.cp(f'Analysing Outlets (preprocessing data) ... please wait ...')
+        self.cp(f'Analysing Outlets ({period_type[0]}) (preprocessing data) ... please wait ...')
         start = time.time()
         try:
             c1 = SUCCESS_OUTPUT_FORMAT
             c2 = INFO_OUTPUT_FORMAT
             outlets_df = outlets_df.loc[(outlets_df['LMPurch'] > 0) & (outlets_df['Purch'] > 0)]
             # Calculate D=y*ln(y/y')+y'-y where y=LMPurch and y'=Purch
-            outlets_df['diff'] = outlets_df[['LMPurch', 'Purch']].apply(lambda r:pd.Series(diffs(r)), axis='columns')
+            # Slower way
+            # outlets_df['diff'] = outlets_df[['LMPurch', 'Purch']].apply(lambda r:pd.Series(diffs_old(r)), axis='columns')
+            # Faster way
+            outlets_df['diff'] = diffs(outlets_df[['LMPurch', 'Purch']])
             cluster_dict = {'Mountly':'mountly', 'Food':'food', 'Non_Food':'non_food'}
             cluster_column = outlets_df['IDOutlet'].map(clusters_df.set_index('id_outlet')[cluster_dict[period_type]])
             # Replace NaN with 1.0, when 1. outlet is not in cluster file,
@@ -196,13 +204,13 @@ class Analysis():
             missing_atypicals_per_outlet = {}
             # Group outlets_df per outlet
             grouped_per_outlet = outlets_df.groupby('IDOutlet')
-            for outlet_id, outlet_df in progress_bar(' Analysing Outlets '.center(30, '='), grouped_per_outlet, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
+            for outlet_id, outlet_df in progress_bar(f' Analysing Outlets ({period_type[0]}) '.center(30, '='), grouped_per_outlet, title='', orientation='v', keep_on_top=False, grab_anywhere=True, no_titlebar=True, no_button=True):
                 missing_atypicals_per_outlet[outlet_id] = {'missing':[], 'atypicals':[]}
                 # NOT Found (Product, Brand, SKU, PeriodType, cluster) in analysis table
                 df_not_found = outlet_df.loc[outlet_df['mean_diff'].isnull()]
                 if not df_not_found.empty:
                     # Create mssing objects
-                    missing_line_dicts = [{h:v for h,v in zip(df_not_found.columns, line)} for line in df_not_found.values.tolist()]
+                    missing_line_dicts = [{h:v for h,v in zip(df_not_found.columns, line)} for line in df_not_found.values]
                     # Add missing SKUS of specific outlet to the "missing" list containing all the missing SKUS
                     missing_atypicals_per_outlet[outlet_id]['missing'] = missing_line_dicts
                 ############## Perform analysis on df with FOUND skus ##############
@@ -230,7 +238,7 @@ class Analysis():
                                     # Approximating the solution that is > than LMPurch, so we give an initial value > LMPurch
                                     r['LMPurch'] + 1,
                                 ), axis='columns')
-                    atypicals_line_dicts = [{h:v for h,v in zip(df.columns, line)} for line in df.values.tolist()]
+                    atypicals_line_dicts = [{h:v for h,v in zip(df.columns, line)} for line in df.values]
                     # Add atypicals of specific outlet to the "atypicals" list containing all the atypicals
                     missing_atypicals_per_outlet[outlet_id]['atypicals'] = atypicals_line_dicts
             message1 = f'Outlet analysis finished in {timer(start, time.time())}!'
@@ -388,18 +396,19 @@ class DbManager():
                 except:
                     self.cp(f'Error while updating "{table_name}" database table. Please try again.', c=ERROR_OUTPUT_FORMAT)
 
-    def table_to_df(self, table_name, count=False, rename=False, drop_id=False):
+    def table_to_df(self, table_name, export=False):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
                 try:
                     if table_name in ['clusters', 'skus', 'missing']:
                         db_columns = [c[1] for c in con.execute(f'PRAGMA table_info({table_name})').fetchall()[1:]]
-                        df = pd.read_sql_query(f"SELECT {'' if drop_id else 'id,'}{','.join(db_columns)} FROM {table_name}", con)
+                        df = pd.read_sql_query(f"SELECT {','.join(db_columns)} FROM {table_name}", con)
                     elif table_name == 'analysis':
-                        _count = 'count,' if count else ''
-                        sql = f'''SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {_count}mean_diff, perc90_diff,
+                        count = 'count,' if export else ''
+                        join = 'FULL OUTER' if export else 'LEFT'
+                        sql = f'''SELECT skus.sku_id, skus.period_type, cluster, skus.sku_name, {count}mean_diff, perc90_diff,
                                   perc95_diff,perc99_diff
-                                  FROM analysis LEFT JOIN skus ON analysis.sku_id=skus.id''' 
+                                  FROM analysis {join} JOIN skus ON analysis.sku_id=skus.id''' 
                         df = pd.read_sql_query(sql, con)
                     elif table_name == 'atypicals':
                         sql = f'''SELECT oa.id_outlet, oa.cluster, skus.period_type, skus.sku_id, skus.sku_name, oa.lm_purch, 
@@ -410,7 +419,7 @@ class DbManager():
                     if table_name != 'clusters':
                         added_columns = ['id_product', 'id_brand', 'id_sku']
                         df[added_columns] = df['sku_id'].str.split('-', expand=True).astype(int)
-                        if drop_id:
+                        if export:
                             df = df.drop('sku_id', axis='columns')
                         id_cols = [c for c in df.columns if 'id_' in c]
                         other_cols = [c for c in df.columns if c not in id_cols]
@@ -459,7 +468,9 @@ class IOManager():
                                                     file_types=(('Excel files',"*.xlsx"),))
                 if not popup or table_file:
                     start = time.time()
-                    table_df = self.db.table_to_df(table_name, drop_id=True, count=True)
+                    table_df = self.db.table_to_df(table_name, export=True)
+                    if 'period_type' in table_df.columns:
+                        table_df['period_type'] = table_df['period_type'].map({1:'Mountly', 2:'Food', 3:'Non_Food'})
                 if popup and table_file:
                     table_df.to_excel(table_file, index=False, freeze_panes=(1,0))
                     duration = timer(start, time.time())
@@ -481,9 +492,10 @@ class IOManager():
         missing_df = self.export_files('missing', popup=False)
         print('FINISHED')
 
-    def parse_file(self, filename, file_type=None, selected_sku_type=None):
+    def parse_file(self, filename, file_type=None, imported_ptype=None):
         start = time.time()
-        self.cp(f'Parsing "{file_type}" file ... please wait ...', l=True)
+        self.cp(f'Selected period type: {imported_ptype}, file name: {os.path.split(filename)[1]}', c=INFO_OUTPUT_FORMAT, l=True)
+        self.cp(f'Parsing "{file_type}" file ... please wait ...')
         c = SUCCESS_OUTPUT_FORMAT
         if file_type == 'clusters':
             df_columns = ['IDOutlet','Cluster_Mountly','Cluster_food','Cluster_non_Food']
@@ -516,7 +528,7 @@ class IOManager():
                 if not df['IDOutlet'].is_unique or df['IDOutlet'].isnull().any():
                     raise
             else:
-                if df['PeriodType'].nunique(dropna=False) != 1 or df['PeriodType'].unique()[0] != selected_sku_type:
+                if df['PeriodType'].nunique(dropna=False) != 1 or df['PeriodType'].unique()[0] != imported_ptype:
                     raise
                 if df[['IDOutlet','IDProduct','IDBrand','IDGoods']].applymap(lambda x: not x > 0).any().any():
                     raise
@@ -544,7 +556,7 @@ class IOManager():
         except:
             message = f'Error while parsing "{file_type}" file.\n- Check your input'
             if file_type != 'clusters':
-                message += '\n- Make sure imported file matches the period type you selected'
+                message += '\n- Make sure imported file period type matches the period type you selected'
             if file_type == 'outlets':
                 message += '\n- Make sure imported file has unique period name'
             c = ERROR_OUTPUT_FORMAT
