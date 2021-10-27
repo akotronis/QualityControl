@@ -205,3 +205,8 @@ Select _Export → Outlets → Missing or Atypicals_ from the top level dropdown
 Select _Delete → Clusters or SKUs_ from the top level dropdown.
 
 ![](resources/13_deleting_content.jpg)
+
+- Choosing Clusters will delete the Clusters database table contents which will have to be repopulated by a new import before performing SKU or Outlet analysis.
+- Choosing SKUs will delete all the other database tables’ contents which will have to be repopulated by a new import before performing SKU or Outlet analysis.
+
+# Code
