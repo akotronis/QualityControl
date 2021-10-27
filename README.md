@@ -32,7 +32,7 @@ However, by using the above type of distance, we obtain
 This application implements the following 2 procedures.
 
 1. The application builds for each SKU, per audit period (monthly, bi-monthly, etc.) and per cluster,
-   the distribution of the distance measure D(Pt+1, Pt). Each such distribution is built with the past
+   the distribution of the distance measure <img src="https://latex.codecogs.com/gif.latex?D%28P_%7Bt&plus;1%7D%2C%20P_t%29" />. Each such distribution is built with the past
    data and updated every audit period with the new data. From the study of these distributions the
    percentiles 90%, 95% and 99% are calculated.
 2. For all stores "i" of the audit period, the corresponding <img src="https://latex.codecogs.com/gif.latex?D_i%28P_%7Bt&plus;1%7D%2C%20P_t%29" /> is calculated per SKU and
