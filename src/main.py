@@ -4,10 +4,9 @@ from datetime import datetime
 import os
 import pandas as pd
 import PySimpleGUI as sg
-import tempfile
-import webbrowser
 
 from classes import *
+from constants import APP_INFO_MESSAGE, CLUSTERS_IMPORT_MESSAGE, SKUS_IMPORT_MESSAGE, OUTLETS_IMPORT_MESSAGE, WARNING_OUTPUT_FORMAT, INFO_OUTPUT_FORMAT
 from functions import *
 
 """
@@ -20,10 +19,10 @@ sg.set_options(element_padding=(0, 0))
 # ------ Menu Definition ------ #
 menu_def = [
     ['&Import', ['&Clusters::IC', '&SKUs', ['&Monthly::ISM', 'Bimonthly - &Food::ISF', 'Bimonthly - &Non Food::ISN'], '&Outlets', ['&Monthly::IOM', 'Bimonthly - &Food::IOF', 'Bimonthly - &Non Food::ION']]],
-    ['&Export', ['&Clusters::EC', '&SKUs', ['&SKUs::ES', 'SKU &Analysis::ESA'], '&Outlets', ['&Missing::EOM','&Atypicals::EOA'], '---', '&Total Report::ET']],
+    ['&Export', ['&Clusters::EC', '&SKUs', ['&SKUs::ES', 'SKU &Analysis::ESA'], '&Outlets', ['&Missing::EOM','&Atypicals::EOA']]],
     ['&Delete', ['&Clusters::DC', '&SKUs::DS']],
     ['&Console', ['&Clear::CC']],
-    ['&About', ['&SKU Quality Control Application::AA', '---', '&Importing', ['&Clusters::AC', '&SKUs::AS', '&Outlets::AO'], '---', 'Read the Docs::AD']],
+    ['&About', ['&Database Current Status::AD',  '---', '&Importing', ['&Clusters::AC', '&SKUs::AS', '&Outlets::AO'], '---', '&SKU Quality Control Application::AA', '&Read the Docs::AR']],
     ['E&xit', ['E&xit Application::EA']],
 ]
 
@@ -81,6 +80,10 @@ while 1:
     message = 'This will close the application.'
     if (event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT or event.endswith('::EA')) and popup_yes_no(title, message):
         break
+    if not db.database_exists():
+        cp('Cannot find database file. A new one is created', c=WARNING_OUTPUT_FORMAT)
+        db.__init__(window)
+        continue
     toggle_menu(menu_def, window, False)
     # MENU "Import" -> Clusters
     if event.endswith('::IC'):
@@ -200,7 +203,7 @@ while 1:
         cp('', u=True)
     # MENU "About" -> Print info messages
     elif '::A' in event:
-        if not event.endswith('::AD'):
+        if not event.endswith('::AR'):
             if event.endswith('::AA'):
                 message = APP_INFO_MESSAGE
             elif event.endswith('::AC'):
@@ -209,11 +212,28 @@ while 1:
                 message = SKUS_IMPORT_MESSAGE
             elif event.endswith('::AO'):
                 message = OUTLETS_IMPORT_MESSAGE
+            elif event.endswith('::AD'):
+                clusters = db.table_count("clusters")
+                message = f'Clusters table: {clusters}, entries'
+                skus = db.table_count("skus")
+                monthly = db.table_count("skus", period_type=1)
+                food = db.table_count("skus", period_type=2)
+                nonfood = db.table_count("skus", period_type=3)
+                message += f'\nSKUs table: {skus} entries'
+                message += f'\n  Monthly: {monthly} entries'
+                message += f'\n  Food: {food} entries'
+                message += f'\n  NonFood: {nonfood} entries'
+                analysis = db.table_count("analysis")
+                monthly = db.table_count("analysis", period_type=1, report=True)
+                food = db.table_count("analysis", period_type=2, report=True)
+                nonfood = db.table_count("analysis", period_type=3, report=True)
+                message += f'\nAnalysis table: {analysis}, entries'
+                message += f'\n  Monthly: {monthly} entries'
+                message += f'\n  Food: {food} entries'
+                message += f'\n  NonFood: {nonfood} entries'
+                message += f'\nAtypicals table: {db.table_count("atypicals")}, entries'
+                message += f'\nMissing table: {db.table_count("missing")}, entries'
             cp(message, c=INFO_OUTPUT_FORMAT, l=True)
         else:
-            html = DOCS
-            with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
-                url = f'file://{f.name}'
-                f.write(html)
-            webbrowser.open(url)
+            show_docs('pdf')
 window.close()

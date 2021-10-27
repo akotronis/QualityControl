@@ -3,9 +3,11 @@ import numpy as np
 import os
 import pandas as pd
 import sqlite3
-from subprocess import call, DEVNULL, STDOUT
+from subprocess import call
 import time
 
+from constants import WARNING_OUTPUT_FORMAT, ERROR_OUTPUT_FORMAT, SUCCESS_OUTPUT_FORMAT, INFO_OUTPUT_FORMAT, VB_EXCEL_TO_CSV, \
+                      CREATE_CLUSTERS_SQL, CREATE_SKUS_SQL, CREATE_ANALYSIS_SQL, CREATE_ATYPICALS_SQL, CREATE_MISSING_SQL
 from functions import *
 
 class Analysis():
@@ -271,6 +273,9 @@ class DbManager():
             return True
         except Exception as ex:
             return False
+    
+    def database_exists(self):
+        return 'db.sqlite3' in os.listdir(os.getcwd())
 
     def create_tables(self):
         # Use context manager to auto close connection
@@ -287,13 +292,18 @@ class DbManager():
                 sql = f"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table_name}'"
                 return con.execute(sql).fetchone()[0]
 
-    def table_count(self, table_name, period_type=False):
+    def table_count(self, table_name, period_type=False, report=False):
         with contextlib.closing(sqlite3.connect(self.db_filename)) as _con:
             with _con as con:
+                sql_table_name = table_name
+                if table_name == 'analysis' and report:
+                    sql_table_name = f'''(SELECT skus.period_type
+                                          FROM analysis LEFT JOIN skus ON analysis.sku_id=skus.id)'''
                 where = ''
                 if period_type:
                     where = f' WHERE period_type={period_type}'
-                sql = f"SELECT COUNT(*) FROM {table_name}{where}"
+                
+                sql = f"SELECT COUNT(*) FROM {sql_table_name}{where}"
                 return con.execute(sql).fetchone()[0]
 
     def table_is_empty(self, table_name):
@@ -499,11 +509,11 @@ class IOManager():
         analysis_df = self.export_files('analysis', popup=False)
         outlets_df = self.export_files('atypicals', popup=False)
         missing_df = self.export_files('missing', popup=False)
-        print('FINISHED')
 
     def parse_file(self, filename, file_type=None, imported_ptype=None):
         start = time.time()
-        self.cp(f'Selected period type: {imported_ptype}, file name: {os.path.split(filename)[1]}', c=INFO_OUTPUT_FORMAT, l=True)
+        period_type_txt = f'period type: {imported_ptype}, ' if imported_ptype else ''
+        self.cp(f'Selected {period_type_txt}file name: {os.path.split(filename)[1]}', c=INFO_OUTPUT_FORMAT, l=True)
         self.cp(f'Parsing "{file_type}" file ... please wait ...')
         c = SUCCESS_OUTPUT_FORMAT
         if file_type == 'clusters':
