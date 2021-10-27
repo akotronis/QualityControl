@@ -42,3 +42,18 @@ This application implements the following 2 procedures.
    optimum alternatives.
 
 ## Gui
+
+The application performs analysis on user input files and results are stored in an **sqlite3** database. The user interacts with the application through a GUI and he can import files for analysis, export files, delete database contents and read the application documentation. Application info is displayed in the console.
+
+### Main Interface
+
+Below is the application main interface. The user can navigate from the top menu and select an
+action.
+
+![](resources/01_main_interface.jpg)
+
+#### Console
+
+The various messages produced by user actions are displayed on the console.
+
+- The console can be cleared by selecting Console → Clear from the top level dropdown menu or by clicking on the console, pressing Ctrl + A and then Delete.
