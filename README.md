@@ -56,4 +56,66 @@ action.
 
 The various messages produced by user actions are displayed on the console.
 
-- The console can be cleared by selecting Console → Clear from the top level dropdown menu or by clicking on the console, pressing Ctrl + A and then Delete.
+- The console can be cleared by selecting Console → Clear from the top level dropdown menu or by clicking on the console, pressing Ctrl+A and then Delete.
+- The contents of the console can be copied by clicking on the console, pressing Ctrl+A, then Ctrl+C and then Ctrl+V to paste them anywhere you like.
+
+#### Actions
+
+The application expects actions in the following logical order:
+
+1. Import Clusters
+2. Import SKUS for analysis
+3. Import Outlets to perform analysis based on the previous step
+
+The application creates a database file (**db.sqlite3**) in the same folder of the executable, where the
+imported items are stored. If this file is deleted, it will be automatically created again the next time the
+application is launched and will have to be populated again with entries from new imports.
+
+#### About
+
+- Select _About → Database Current Status_ to print counts for the database tables on the console.
+- Select _About → Importing_ to print information about importing files (see below).
+- Select _About → SKU Quality Control Application_ to print quick info about the app.
+- Select _About → Read the Docs_ to launch the documentation file.
+
+![](resources/00_About.jpg)
+
+## Importing files
+
+The application accepts as input **.csv** or **.xlsx/.xls** files. The .csv files are imported much faster. In
+the case of .xlsx/.xls imports, the application will try to convert the file to .csv before parsing it.
+
+### Clusters
+
+The imported file must follow the rules the user can see by selecting About → Importing → Clusters from the top level dropdown menu.
+![](resources/02_about_importing_clusters.jpg)
+
+Select _Import → Clusters_ from the top level dropdown and choose a cluster file to import.
+![](resources/03_importing_clusters.jpg)
+
+The appropriate messages will be displayed on the console in the case of success or failure accord-
+ingly.
+![](resources/04_importing_clusters_success.jpg)
+![](resources/05_importing_clusters_failure.jpg)
+
+Note that:
+
+1. The imported file must comply with the rules mentioned above,
+2. Every time a new file is submitted, **all existing clusters will be deleted and replaced by the new ones**.
+
+### SKUs
+
+The imported file must follow the rules the user can see by selecting _About → Importing → SKUs_ from the top level dropdown menu
+![](resources/06_about_importing_skus.jpg)
+
+Select _Import → SKUs →_ and the period type for the file you want to import from the top level
+dropdown.
+![](resources/07_importing_skus_1.jpg)
+
+A popup will appear with the period type that was selected from the menu. Make sure to select the file of the correct period type, or an error message will appear while parsing it.
+![](resources/07_importing_skus_2.jpg)
+
+The appropriate success/error messages will appear while parsing the file. If parsing is successful,
+a progress window will appear displaying the progress of the SKU analysis. Wait until the process is
+finished.
+![](resources/07_importing_skus_3.jpg)
