@@ -88,14 +88,18 @@ the case of .xlsx/.xls imports, the application will try to convert the file to 
 ### Clusters
 
 The imported file must follow the rules the user can see by selecting About → Importing → Clusters from the top level dropdown menu.
+
 ![](resources/02_about_importing_clusters.jpg)
 
 Select _Import → Clusters_ from the top level dropdown and choose a cluster file to import.
+
 ![](resources/03_importing_clusters.jpg)
 
 The appropriate messages will be displayed on the console in the case of success or failure accord-
 ingly.
+
 ![](resources/04_importing_clusters_success.jpg)
+
 ![](resources/05_importing_clusters_failure.jpg)
 
 Note that:
@@ -106,16 +110,98 @@ Note that:
 ### SKUs
 
 The imported file must follow the rules the user can see by selecting _About → Importing → SKUs_ from the top level dropdown menu
+
 ![](resources/06_about_importing_skus.jpg)
 
-Select _Import → SKUs →_ and the period type for the file you want to import from the top level
-dropdown.
+Select _Import → SKUs →_ and the period type for the file you want to import from the top level dropdown.
+
 ![](resources/07_importing_skus_1.jpg)
 
 A popup will appear with the period type that was selected from the menu. Make sure to select the file of the correct period type, or an error message will appear while parsing it.
+
 ![](resources/07_importing_skus_2.jpg)
 
-The appropriate success/error messages will appear while parsing the file. If parsing is successful,
-a progress window will appear displaying the progress of the SKU analysis. Wait until the process is
-finished.
+The appropriate success/error messages will appear while parsing the file. If parsing is successful, a progress window will appear displaying the progress of the SKU analysis. Wait until the process is finished.
+
 ![](resources/07_importing_skus_3.jpg)
+
+Note that:
+
+1. The imported file must comply with the rules mentioned above,
+2. Every time a new file is submitted, the entries will be appended to the database.
+3. If any SKU from the selected period type already exists in the database, a warning message will appear and the database will not be updated. All SKUs of a specific period type must update the database from a single file.
+4. Clusters must be up to date before importing SKUs.
+
+### Outlets
+
+The imported file must follow the rules the user can see by selecting _About → Importing → Outlets_ from the top level dropdown menu.
+
+![](resources/08_about_importing_outlets.jpg)
+
+Select _Import → Outlets →_ and the period type for the file you want to import from the top level
+dropdown.
+
+![](resources/09_importing_outlets_1.jpg)
+
+the relevant pop up for selecting outlet file according to the selected period type, the success/error messages and the progress window will appear just as in the SKUs section. A report will also appear on the console about the atypical and missing entries found per outlet:
+
+![](resources/09_importing_outlets_2.jpg)
+
+After a successful file import, two database tables will be populated, a table for the _atypical_ entries found and a table for the _missing_ ones.
+
+Note that:
+
+1. The imported file must comply with the rules mentioned above,
+2. Every time a new file is submitted, all existing atypicals and missing entries will be deleted and replaced by the new ones.
+3. Clusters must be up to date before importing Outlets.
+
+## Exporting files
+
+### Clusters
+
+Select _Export → Clusters_ from the top level dropdown and choose a cluster file name to export.
+
+![](resources/10_exporting_clusters.jpg)
+
+an excel file will be created with the columns
+
+- _id_outlet_: the id of the outlet
+- _mountly, food, non_food_: the cluster number for the corresponding period type.
+
+### SKUs
+
+Select _Export → SKUs → SKUs or SKU Analysis_ from the top level dropdown and choose a file name to export
+
+![](resources/11_exporting_skus.jpg)
+
+- SKUs will export all the SKUs that were imported in the database. Columns:
+  - _id_product, id_brand, id_sku, period_type, sku_name_: As in the imported files.
+  - _sku_file_name_: The name of the file rom where it was imported
+  - _imported_date_: The date where it was imported
+    -SKU Analysis will export a joined table with all the SKUs that were imported in the database and the statistics from the analysis, where present. Columns:
+  - _id_product, id_brand, id_sku, period_type, sku_name_: As above.
+  - _cluster_: The cluster from the corresponding outlet and period type
+  - _count, mean_diff, perc90_diff, perc95_diff, perc99_diff_: The statistics from the analysis performed
+
+### Outlets
+
+Select _Export → Outlets → Missing or Atypicals_ from the top level dropdown and choose a file name to export.
+
+![](resources/12_exporting_outlets.jpg)
+
+- Missing will export the missing entries from the database based on the outlet file on which the outlet analysis was performed. Columns:
+  - _id_outlet, id_product, id_brand, id_sku, period_type, cluster_: As above.
+  - _lm_purch, purch_: The corresponding last month purchases and the current purshases respectively.
+- Atypicals will export the atypical entries from the database based on the outlet file on which the outlet analysis was performed. Columns:
+  - _id_product, id_brand, id_sku, period_type, cluster, sku_name, lm_purch, purch_: As above.
+  - _stars_:
+    - \*\*\* → D > _perc99_diff_,
+    - \*\* → D > _perc95_diff_ and <= _perc99_diff_,
+    - \* → D > _perc90_diff_ and <= _perc95_diff_,
+    - _proposed_purch_1, proposed_purch_2_: Two proposed values for purchases produced by the analysis based on Newton’s method.
+
+## Deleting Content
+
+Select _Delete → Clusters or SKUs_ from the top level dropdown.
+
+![](resources/13_deleting_content.jpg)
