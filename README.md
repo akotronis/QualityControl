@@ -210,3 +210,5 @@ Select _Delete → Clusters or SKUs_ from the top level dropdown.
 - Choosing SKUs will delete all the other database tables’ contents which will have to be repopulated by a new import before performing SKU or Outlet analysis.
 
 # Code
+
+The application is made with **_Python_**. GUI is made with _PySimpleGUI_. Other packages used are _sqlite3_, _math_, _numpy_, _pandas_, _subprocess_, _base64_, _tempfile_, _webbrowser_
