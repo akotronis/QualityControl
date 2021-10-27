@@ -10,11 +10,12 @@ of the _Emrc Retail Audit sample._
 The distance measure which is used to implement the above, based on Shanon’s theory, is the
 following:
 
-<center><img src="https://latex.codecogs.com/gif.latex?\text{==========}D(P_{t+1},P_t)=P_{t+1}\cdot\ln(P_{t+1}/P_t)+P_t-P_{t+1}\text{==========}" /></center>
+<img src="https://latex.codecogs.com/gif.latex?D(P_{t+1},P_t)=P_{t+1}\cdot\ln(P_{t+1}/P_t)+P_t-P_{t+1}" />
 
 ## An example
 
 A typical example that describes this property is the following:
 We have 2 stores where the purchases for the same SKU in 2 consecutive periods are
 
+<img src="https://latex.codecogs.com/gif.latex?\text{store A: }P_t=1, P_{t+1}=2\text{, and store B: }P_t=5, P_{t+1}=10." />
 ## Gui
