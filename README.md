@@ -10,7 +10,7 @@ of the _Emrc Retail Audit sample._
 The distance measure which is used to implement the above, based on Shanon’s theory, is the
 following:
 
-<img src="https://latex.codecogs.com/gif.latex?D(P_{t+1},P_t)=P_{t+1}\cdot\ln(P_{t+1}/P_t)+P_t-P_{t+1}" />
+<img src="https://latex.codecogs.com/gif.latex?%5Ctext%7B%20%7DD%28P_%7Bt&plus;1%7D%2CP_t%29%3DP_%7Bt&plus;1%7D%5Ccdot%5Cln%28P_%7Bt&plus;1%7D/P_t%29&plus;P_t-P_%7Bt&plus;1%7D%5Ctext%7B%20%7D" />
 
 ## An example
 
