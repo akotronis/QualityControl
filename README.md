@@ -211,4 +211,4 @@ Select _Delete → Clusters or SKUs_ from the top level dropdown.
 
 # Code
 
-The application is made with **_Python_**. GUI is made with _PySimpleGUI_. Other packages used are _sqlite3_, _math_, _numpy_, _pandas_, _subprocess_, _base64_, _tempfile_, _webbrowser_
+The application is made with **_Python_**. GUI is made with _PySimpleGUI_, executable file with _PyInstaller_ and code is optimized with _LineProfiler_. Other packages used are _sqlite3_, _math_, _numpy_, _pandas_, _subprocess_, _base64_, _tempfile_, _webbrowser_
