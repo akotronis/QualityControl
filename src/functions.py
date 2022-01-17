@@ -179,7 +179,7 @@ def subprocess_call(*args, **kwargs):
 def show_docs(_type='html'):
     if _type == 'html':
         from constants import HTML_DOCS
-        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
             _path = f'file://{f.name}'
             f.write(HTML_DOCS)
         webbrowser.open(_path)

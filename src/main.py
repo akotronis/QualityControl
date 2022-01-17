@@ -235,5 +235,5 @@ while 1:
                 message += f'\nMissing table: {db.table_count("missing")}, entries'
             cp(message, c=INFO_OUTPUT_FORMAT, l=True)
         else:
-            show_docs('pdf')
+            show_docs('html')
 window.close()
