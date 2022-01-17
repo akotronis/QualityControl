@@ -524,61 +524,61 @@ class IOManager():
         elif file_type == 'outlets':
             df_columns = ['IDOutlet','PeriodType','PeriodName','LMPurch','Purch',
                           'IDProduct','IDBrand','IDGoods']
-        # try:
-        _, extension = os.path.splitext(filename)
-        if extension in ['.xlsx', '.xls']:
-            self.cp('Converting excel to csv ... please wait ...')
-            try:
-                vbscript = os.path.join(os.getcwd(), 'ExcelToCsv.vbs')
-                csv_filename = os.path.join(os.getcwd(), f'{int(time.time())}.csv')
-                self.excel_to_csv(vbscript,  filename, csv_filename)
-                df = pd.read_csv(csv_filename, usecols=df_columns, sep=None, engine='python', encoding='utf-8-sig')#, dtype=column_types)
-            except:
-                self.cp('Cannot convert to csv or read converted file. Reading excel file ... please wait ...', c=WARNING_OUTPUT_FORMAT)
-                xl_fl = pd.ExcelFile(filename)
-                df = xl_fl.parse(xl_fl.sheet_names[0], usecols=df_columns)#, dtype=column_types)
-            finally:
-                self.delete_files(vbscript)
-                self.delete_files(csv_filename)
-        elif extension == '.csv':
-            df = pd.read_csv(filename, usecols=df_columns, sep=None, engine='python', encoding='utf-8-sig')#, dtype=column_types)
-        # input data validation
-        if file_type == 'clusters':
-            if not df['IDOutlet'].is_unique or df['IDOutlet'].isnull().any():
-                raise
-        else:
-            if df['PeriodType'].nunique(dropna=False) != 1 or df['PeriodType'].unique()[0] != imported_ptype:
-                raise
-            if df[['IDOutlet','IDProduct','IDBrand','IDGoods']].applymap(lambda x: not x > 0).any().any():
-                raise
-        if file_type == 'skus':
-            if df[['PeriodName','SKU Name']].isnull().any().any():
-                raise
-        if file_type == 'outlets':
-            if df['PeriodName'].nunique(dropna=False) != 1 or df['PeriodName'].isnull().any():
-                raise
-        duration = timer(start, time.time())
-        if file_type == 'skus':
-            id_cols = ['IDProduct','IDBrand','IDGoods']
-            id_cols_name = id_cols + ['SKU Name']
-            unique_skus_df = df[id_cols_name].drop_duplicates(subset=id_cols)
-            sku_ids_names_dict = dict(zip(join_columns(unique_skus_df, id_cols), unique_skus_df['SKU Name'].apply(lambda x:' '.join(x.split()))))
-            message = f'"skus" file parsed in {duration}! {len(unique_skus_df)} unique skus'
-            return df, sku_ids_names_dict
-        else:
-            message = f'"{file_type}" file parsed in {duration}!'
+        try:
+            _, extension = os.path.splitext(filename)
+            if extension in ['.xlsx', '.xls']:
+                self.cp('Converting excel to csv ... please wait ...')
+                try:
+                    vbscript = os.path.join(os.getcwd(), 'ExcelToCsv.vbs')
+                    csv_filename = os.path.join(os.getcwd(), f'{int(time.time())}.csv')
+                    self.excel_to_csv(vbscript,  filename, csv_filename)
+                    df = pd.read_csv(csv_filename, usecols=df_columns, sep=None, engine='python')#, dtype=column_types)
+                except:
+                    self.cp('Cannot convert to csv or read converted file. Reading excel file ... please wait ...', c=WARNING_OUTPUT_FORMAT)
+                    xl_fl = pd.ExcelFile(filename)
+                    df = xl_fl.parse(xl_fl.sheet_names[0], usecols=df_columns)#, dtype=column_types)
+                finally:
+                    self.delete_files(vbscript)
+                    self.delete_files(csv_filename)
+            elif extension == '.csv':
+                df = pd.read_csv(filename, usecols=df_columns, sep=None, engine='python')#, dtype=column_types)
+            # input data validation
             if file_type == 'clusters':
-                message += f' {len(df)} unique outlets'
+                if not df['IDOutlet'].is_unique or df['IDOutlet'].isnull().any():
+                    raise
             else:
-                df = df.drop('PeriodName', axis='columns')
-            return df
-        # except:
-        #     message = f'Error while parsing "{file_type}" file.\n- Check your input'
-        #     if file_type != 'clusters':
-        #         message += '\n- Make sure imported file period type matches the period type you selected'
-        #     if file_type == 'outlets':
-        #         message += '\n- Make sure imported file has unique period name'
-        #     c = ERROR_OUTPUT_FORMAT
-        # finally:
-        #     self.cp(message, c=c)
+                if df['PeriodType'].nunique(dropna=False) != 1 or df['PeriodType'].unique()[0] != imported_ptype:
+                    raise
+                if df[['IDOutlet','IDProduct','IDBrand','IDGoods']].applymap(lambda x: not x > 0).any().any():
+                    raise
+            if file_type == 'skus':
+                if df[['PeriodName','SKU Name']].isnull().any().any():
+                    raise
+            if file_type == 'outlets':
+                if df['PeriodName'].nunique(dropna=False) != 1 or df['PeriodName'].isnull().any():
+                    raise
+            duration = timer(start, time.time())
+            if file_type == 'skus':
+                id_cols = ['IDProduct','IDBrand','IDGoods']
+                id_cols_name = id_cols + ['SKU Name']
+                unique_skus_df = df[id_cols_name].drop_duplicates(subset=id_cols)
+                sku_ids_names_dict = dict(zip(join_columns(unique_skus_df, id_cols), unique_skus_df['SKU Name'].apply(lambda x:' '.join(x.split()))))
+                message = f'"skus" file parsed in {duration}! {len(unique_skus_df)} unique skus'
+                return df, sku_ids_names_dict
+            else:
+                message = f'"{file_type}" file parsed in {duration}!'
+                if file_type == 'clusters':
+                    message += f' {len(df)} unique outlets'
+                else:
+                    df = df.drop('PeriodName', axis='columns')
+                return df
+        except:
+            message = f'Error while parsing "{file_type}" file.\n- Check your input'
+            if file_type != 'clusters':
+                message += '\n- Make sure imported file period type matches the period type you selected'
+            if file_type == 'outlets':
+                message += '\n- Make sure imported file has unique period name'
+            c = ERROR_OUTPUT_FORMAT
+        finally:
+            self.cp(message, c=c)
         
